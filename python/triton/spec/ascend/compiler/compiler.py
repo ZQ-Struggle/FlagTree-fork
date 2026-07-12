@@ -13,6 +13,7 @@ from ..runtime.driver import driver
 from ..tools.disasm import get_sass
 from .errors import MLIRCompilationError
 from pathlib import Path
+import importlib
 import re
 import functools
 import os
@@ -513,10 +514,28 @@ class CompiledKernel:
         return self._run
 
     def launch_metadata(self, grid, stream, *args):
-        if knobs.runtime.launch_enter_hook is None:
+        debugger_active = False
+        try:
+            debugger_active = importlib.import_module("triton.runtime.debugger").is_active()
+        except Exception:
+            pass
+        if (knobs.runtime.launch_enter_hook is None and
+                not getattr(self.metadata, "debug_enabled", False) and
+                not debugger_active):
             return None
         self._init_handles()
-        ret = LazyDict({"name": self.name, "function": self.function, "stream": stream})
+        grid_size = len(grid)
+        normalized_grid = (
+            int(grid[0]),
+            int(grid[1]) if grid_size > 1 else 1,
+            int(grid[2]) if grid_size > 2 else 1,
+        )
+        ret = LazyDict({
+            "name": self.name,
+            "function": self.function,
+            "stream": stream,
+            "grid": normalized_grid,
+        })
         if not isinstance(self.src, ASTSource) or self.src.fn.launch_metadata is None:
             return ret
         arg_dict = {name: arg for name, arg in zip(self.src.fn.arg_names, args)}

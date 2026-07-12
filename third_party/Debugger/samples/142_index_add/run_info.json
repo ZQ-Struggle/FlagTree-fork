@@ -1,0 +1,23 @@
+{
+  "case_id": null,
+  "command": "source /usr/local/Ascend/ascend-toolkit/set_env.sh >/dev/null 2>&1; cd /workspace/FlagTree/.cache/flaggems_debugger_batch/worktrees/FlagGems_instrumented_20260623_145208/tests; exec /usr/local/python3.11.15/bin/python -m pytest -m index_add_ --record json --output accuracy_index_add_.json -vs --quick --ref cpu",
+  "copied_driver_sources": [],
+  "copied_report_files": 0,
+  "copied_report_source_locs": [],
+  "debug_json_count": 2,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/runs/20260623_145208/index_add_/accuracy/debug_reports",
+  "debug_txt_count": 2,
+  "description": null,
+  "duration_sec": 93.19162106513977,
+  "nodeid": null,
+  "op": "index_add_",
+  "script": null,
+  "selected_ops": null,
+  "status": "passed",
+  "summary_file": ".cache/flaggems_debugger_batch/runs/20260623_145208/summary.json",
+  "copied_kernel_sources": [
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/worktrees/FlagGems_instrumented_20260623_145208/src/flag_gems/runtime/backend/_ascend/ops/index_add.py"
+  ],
+  "copied_log_files": [],
+  "reports_archived": false
+}

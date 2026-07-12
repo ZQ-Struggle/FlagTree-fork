@@ -1,0 +1,23 @@
+{
+  "case_id": null,
+  "command": "source /usr/local/Ascend/ascend-toolkit/set_env.sh >/dev/null 2>&1; cd /workspace/FlagTree/.cache/flaggems_debugger_batch/worktrees/FlagGems_instrumented_20260623_165644/tests; exec /usr/local/python3.11.15/bin/python -m pytest -m ones --record json --output accuracy_ones.json -vs --quick --ref cpu",
+  "copied_driver_sources": [],
+  "copied_report_files": 0,
+  "copied_report_source_locs": [],
+  "debug_json_count": 5,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/runs/20260623_165644/ones/accuracy/debug_reports",
+  "debug_txt_count": 5,
+  "description": null,
+  "duration_sec": 87.1935875415802,
+  "nodeid": null,
+  "op": "ones",
+  "script": null,
+  "selected_ops": null,
+  "status": "passed",
+  "summary_file": ".cache/flaggems_debugger_batch/runs/20260623_165644/summary.json",
+  "copied_kernel_sources": [
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/worktrees/FlagGems_instrumented_20260623_165644/src/flag_gems/runtime/backend/_ascend/ops/ones.py"
+  ],
+  "copied_log_files": [],
+  "reports_archived": false
+}

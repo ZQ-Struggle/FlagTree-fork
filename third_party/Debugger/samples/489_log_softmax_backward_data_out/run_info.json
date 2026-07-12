@@ -1,0 +1,38 @@
+{
+  "op": "log_softmax_backward_data_out",
+  "tier": "coverage",
+  "kind": "pytest_node",
+  "status": "partial_timeout",
+  "nodeid": "tests/test_log_softmax.py::test_accuracy_log_softmax_backward_out[1-dtype0-shape0]",
+  "selected_ops": [
+    "log_softmax_backward_data_out"
+  ],
+  "timeout_class": "maybe_heavy",
+  "first_report_timeout_sec": 300,
+  "report_timeout_sec": 180,
+  "node_total_timeout_sec": 1200,
+  "copied_driver_sources": [
+    "source/runner.py",
+    "source/test_source.py"
+  ],
+  "copied_kernel_sources": [
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/ops/log_softmax.py",
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/ops/zeros.py",
+    "source/kernel_sources/report_sources/python/build/lib.linux-aarch64-cpython-311/triton/backends/ascend/spec/triton/language/standard.py"
+  ],
+  "copied_report_files": 0,
+  "copied_log_files": [],
+  "summary_file": ".cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/summary.json",
+  "debug_json_count": 14,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_log_softmax_py_test_accuracy_log_softmax_backward_out_1_dtype0_shape0_/debug_reports",
+  "debug_txt_count": 14,
+  "duration_sec": 246.40372109413147,
+  "exit_code": -15,
+  "first_error": "report_timeout",
+  "pytest_result": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_log_softmax_py_test_accuracy_log_softmax_backward_out_1_dtype0_shape0_/pytest_result.json",
+  "stderr_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_log_softmax_py_test_accuracy_log_softmax_backward_out_1_dtype0_shape0_/stderr.log",
+  "stdout_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_log_softmax_py_test_accuracy_log_softmax_backward_out_1_dtype0_shape0_/stdout.log",
+  "timeout_reason": "report_timeout",
+  "copied_report_source_locs": [],
+  "reports_archived": false
+}

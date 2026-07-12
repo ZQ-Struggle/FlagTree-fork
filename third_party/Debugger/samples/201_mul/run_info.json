@@ -1,0 +1,26 @@
+{
+  "case_id": "tensor_tensor",
+  "command": "source /usr/local/Ascend/ascend-toolkit/set_env.sh >/dev/null 2>&1; cd /workspace/FlagTree/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558; exec /usr/local/python3.11.15/bin/python /workspace/FlagTree/.cache/flaggems_debugger_batch/front_two_classes_full_final/direct_runs/20260626_150558/mul/tensor_tensor/case.py",
+  "copied_driver_sources": [
+    "source/case.py"
+  ],
+  "copied_report_files": 0,
+  "copied_report_source_locs": [],
+  "debug_json_count": 1,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/front_two_classes_full_final/direct_runs/20260626_150558/mul/tensor_tensor/debug_reports",
+  "debug_txt_count": 1,
+  "description": "torch.mul tensor-tensor pointwise",
+  "duration_sec": 63.01161003112793,
+  "nodeid": null,
+  "op": "mul",
+  "script": "/workspace/FlagTree/.cache/flaggems_debugger_batch/front_two_classes_full_final/direct_runs/20260626_150558/mul/tensor_tensor/case.py",
+  "selected_ops": null,
+  "status": "passed",
+  "summary_file": ".cache/flaggems_debugger_batch/front_two_classes_full_final/direct_runs/20260626_150558/summary.json",
+  "copied_kernel_sources": [
+    "source/generated_kernels/pointwise_dynamic_ee9a381fed7acfd15e8a0334d41d2f5cd5fac55cf2e05a6c067df3a495524d8612_mul_func_kernel_rank_1_.py",
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/ops/mul.py"
+  ],
+  "copied_log_files": [],
+  "reports_archived": false
+}

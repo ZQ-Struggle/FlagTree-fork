@@ -1,0 +1,37 @@
+{
+  "case_id": "m8_n16",
+  "command": "source /usr/local/Ascend/ascend-toolkit/set_env.sh >/dev/null 2>&1; cd /workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/worktrees/FlagGems_direct_instrumented_20260711_122435; exec /usr/local/python3.11.15/bin/python /workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/addmv_out/m8_n16/case.py",
+  "debug_json_count": 34,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/addmv_out/m8_n16/debug_reports",
+  "debug_txt_count": 34,
+  "description": "torch.addmv out variant",
+  "duration_sec": 300.3972978591919,
+  "exit_code": null,
+  "first_error": "case_total_timeout",
+  "first_report_timeout_sec": 180,
+  "include_names": [
+    "addmv_out",
+    "addmv"
+  ],
+  "last_report_time": 1783744728.226671,
+  "op": "addmv_out",
+  "report_timeout_sec": 120,
+  "script": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/addmv_out/m8_n16/case.py",
+  "status": "partial_timeout",
+  "stderr_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/addmv_out/m8_n16/stderr.log",
+  "stdout_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/addmv_out/m8_n16/stdout.log",
+  "timeout_reason": "case_total_timeout",
+  "tier": "coverage",
+  "kind": "direct_case",
+  "copied_driver_sources": [
+    "source/case.py"
+  ],
+  "copied_kernel_sources": [
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/new_samples_direct_20260711/worktrees/FlagGems_direct_instrumented_20260711_122435/src/flag_gems/ops/addmv.py"
+  ],
+  "copied_report_files": 0,
+  "copied_log_files": [],
+  "summary_file": ".cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/summary.json",
+  "copied_report_source_locs": [],
+  "reports_archived": false
+}

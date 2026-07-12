@@ -1,0 +1,30 @@
+{
+  "case_id": null,
+  "command": null,
+  "copied_driver_sources": [
+    "source/runner.py",
+    "source/test_source.py"
+  ],
+  "copied_report_files": 0,
+  "copied_report_source_locs": [],
+  "debug_json_count": 2,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_run2/pytest_node_runs/20260627_094744/nodes/tests_test_diag_py_test_diag_dtype0__1_shape0_/debug_reports",
+  "debug_txt_count": 2,
+  "description": null,
+  "duration_sec": 36.00491213798523,
+  "nodeid": "tests/test_diag.py::test_diag[dtype0--1-shape0]",
+  "op": "diag",
+  "script": null,
+  "selected_ops": [
+    "diag"
+  ],
+  "status": "passed",
+  "summary_file": ".cache/flaggems_debugger_batch/pytest_no_direct_case_rep_run2/pytest_node_runs/20260627_094744/summary.json",
+  "copied_kernel_sources": [
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/runtime/backend/_ascend/ops/diag.py",
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/runtime/backend/_ascend/ops/zeros.py",
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/utils/triton_lang_extension.py"
+  ],
+  "copied_log_files": [],
+  "reports_archived": false
+}

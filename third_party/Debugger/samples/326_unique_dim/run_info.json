@@ -1,0 +1,30 @@
+{
+  "case_id": null,
+  "command": null,
+  "copied_driver_sources": [
+    "source/runner.py",
+    "source/test_source.py"
+  ],
+  "copied_report_files": 0,
+  "copied_report_source_locs": [],
+  "debug_json_count": 10,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_unique_dim_py_test_unique_dim_aten_returns_three_tensors_False_False_/debug_reports",
+  "debug_txt_count": 10,
+  "description": null,
+  "duration_sec": 62.00891828536987,
+  "nodeid": "tests/test_unique_dim.py::test_unique_dim_aten_returns_three_tensors[False-False]",
+  "op": "unique_dim",
+  "script": null,
+  "selected_ops": [
+    "unique_dim"
+  ],
+  "status": "passed",
+  "summary_file": ".cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/summary.json",
+  "copied_kernel_sources": [
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/ops/nonzero.py",
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/ops/unique_dim.py",
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/runtime/backend/_ascend/ops/cumsum.py"
+  ],
+  "copied_log_files": [],
+  "reports_archived": false
+}

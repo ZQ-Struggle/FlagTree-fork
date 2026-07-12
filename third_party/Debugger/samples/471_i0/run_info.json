@@ -1,0 +1,37 @@
+{
+  "op": "i0_",
+  "tier": "coverage",
+  "kind": "pytest_node",
+  "status": "timeout",
+  "nodeid": "tests/test_i0.py::test_i0_[dtype0-shape0]",
+  "selected_ops": [
+    "i0_"
+  ],
+  "timeout_class": "default",
+  "first_report_timeout_sec": 180,
+  "report_timeout_sec": 120,
+  "node_total_timeout_sec": 600,
+  "copied_driver_sources": [
+    "source/runner.py",
+    "source/test_source.py"
+  ],
+  "copied_kernel_sources": [
+    "source/kernel_sources/src/flag_gems/ops/i0_.py",
+    "source/kernel_sources/src/flag_gems/ops/i0.py"
+  ],
+  "copied_report_files": 0,
+  "copied_log_files": [],
+  "summary_file": ".cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/summary.json",
+  "debug_json_count": 0,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_i0_py_test_i0__dtype0_shape0_/debug_reports",
+  "debug_txt_count": 0,
+  "duration_sec": 180.32826685905457,
+  "exit_code": -15,
+  "first_error": "first_report_timeout",
+  "pytest_result": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_i0_py_test_i0__dtype0_shape0_/pytest_result.json",
+  "stderr_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_i0_py_test_i0__dtype0_shape0_/stderr.log",
+  "stdout_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_i0_py_test_i0__dtype0_shape0_/stdout.log",
+  "timeout_reason": "first_report_timeout",
+  "copied_report_source_locs": [],
+  "reports_archived": false
+}

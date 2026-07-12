@@ -1,0 +1,28 @@
+{
+  "case_id": null,
+  "command": null,
+  "copied_driver_sources": [
+    "source/runner.py",
+    "source/test_source.py"
+  ],
+  "copied_report_files": 0,
+  "copied_report_source_locs": [],
+  "debug_json_count": 48,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_upsample_bicubic2d_aa_py_test_upsample_bicubic2d_aa_dtype0_shape0_scale0_False_/debug_reports",
+  "debug_txt_count": 48,
+  "description": null,
+  "duration_sec": 512.1140887737274,
+  "nodeid": "tests/test_upsample_bicubic2d_aa.py::test_upsample_bicubic2d_aa[dtype0-shape0-scale0-False]",
+  "op": "upsample_bicubic2d_aa",
+  "script": null,
+  "selected_ops": [
+    "upsample_bicubic2d_aa"
+  ],
+  "status": "passed",
+  "summary_file": ".cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/summary.json",
+  "copied_kernel_sources": [
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/ops/zeros.py"
+  ],
+  "copied_log_files": [],
+  "reports_archived": false
+}

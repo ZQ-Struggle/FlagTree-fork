@@ -1,0 +1,36 @@
+{
+  "op": "upsample_bicubic2d_aa_backward",
+  "tier": "coverage",
+  "kind": "pytest_node",
+  "status": "pytest_error",
+  "nodeid": "tests/test_upsample_bicubic2d_aa.py::test_upsample_bicubic2d_aa_backward[dtype0-1-1-10-10-23-23-False]",
+  "selected_ops": [
+    "upsample_bicubic2d_aa_backward"
+  ],
+  "timeout_class": "default",
+  "first_report_timeout_sec": 180,
+  "report_timeout_sec": 120,
+  "node_total_timeout_sec": 600,
+  "copied_driver_sources": [
+    "source/runner.py",
+    "source/test_source.py"
+  ],
+  "copied_kernel_sources": [
+    "source/kernel_sources/src/flag_gems/ops/upsample_bicubic2d_aa_backward.py"
+  ],
+  "copied_report_files": 0,
+  "copied_log_files": [],
+  "summary_file": ".cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/summary.json",
+  "debug_json_count": 0,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_upsample_bicubic2d_aa_py_test_upsample_bicubic2d_aa_backward_dtype0_1_1_10_10_23_23_False_/debug_reports",
+  "debug_txt_count": 0,
+  "duration_sec": 20.003087520599365,
+  "exit_code": 4,
+  "first_error": "pytest exit code 4",
+  "pytest_result": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_upsample_bicubic2d_aa_py_test_upsample_bicubic2d_aa_backward_dtype0_1_1_10_10_23_23_False_/pytest_result.json",
+  "stderr_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_upsample_bicubic2d_aa_py_test_upsample_bicubic2d_aa_backward_dtype0_1_1_10_10_23_23_False_/stderr.log",
+  "stdout_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_upsample_bicubic2d_aa_py_test_upsample_bicubic2d_aa_backward_dtype0_1_1_10_10_23_23_False_/stdout.log",
+  "timeout_reason": "",
+  "copied_report_source_locs": [],
+  "reports_archived": false
+}

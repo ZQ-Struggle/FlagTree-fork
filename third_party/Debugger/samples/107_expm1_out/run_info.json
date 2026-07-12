@@ -1,0 +1,26 @@
+{
+  "case_id": "shape16_out",
+  "command": "source /usr/local/Ascend/ascend-toolkit/set_env.sh >/dev/null 2>&1; cd /workspace/FlagTree/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558; exec /usr/local/python3.11.15/bin/python /workspace/FlagTree/.cache/flaggems_debugger_batch/front_two_classes_full_final/direct_runs/20260626_150558/expm1_out/shape16_out/case.py",
+  "copied_driver_sources": [
+    "source/case.py"
+  ],
+  "copied_report_files": 0,
+  "copied_report_source_locs": [],
+  "debug_json_count": 1,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/front_two_classes_full_final/direct_runs/20260626_150558/expm1_out/shape16_out/debug_reports",
+  "debug_txt_count": 1,
+  "description": "torch.expm1 out pointwise shape=(16,)",
+  "duration_sec": 63.012343406677246,
+  "nodeid": null,
+  "op": "expm1_out",
+  "script": "/workspace/FlagTree/.cache/flaggems_debugger_batch/front_two_classes_full_final/direct_runs/20260626_150558/expm1_out/shape16_out/case.py",
+  "selected_ops": null,
+  "status": "passed",
+  "summary_file": ".cache/flaggems_debugger_batch/front_two_classes_full_final/direct_runs/20260626_150558/summary.json",
+  "copied_kernel_sources": [
+    "source/generated_kernels/pointwise_dynamic_ca41cbd7b0c1b792193bb445f40b3ba04b95c0fe998bd162710994d457c5455211_expm1_func_kernel_rank_1_.py",
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/ops/expm1.py"
+  ],
+  "copied_log_files": [],
+  "reports_archived": false
+}

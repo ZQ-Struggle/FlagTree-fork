@@ -1,0 +1,26 @@
+{
+  "case_id": "tensor_tensor",
+  "command": "source /usr/local/Ascend/ascend-toolkit/set_env.sh >/dev/null 2>&1; cd /workspace/FlagTree/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558; exec /usr/local/python3.11.15/bin/python /workspace/FlagTree/.cache/flaggems_debugger_batch/front_two_classes_full_final/direct_runs/20260626_150558/pow_tensor_tensor/tensor_tensor/case.py",
+  "copied_driver_sources": [
+    "source/case.py"
+  ],
+  "copied_report_files": 0,
+  "copied_report_source_locs": [],
+  "debug_json_count": 1,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/front_two_classes_full_final/direct_runs/20260626_150558/pow_tensor_tensor/tensor_tensor/debug_reports",
+  "debug_txt_count": 1,
+  "description": "torch.pow tensor-tensor pointwise",
+  "duration_sec": 62.014211654663086,
+  "nodeid": null,
+  "op": "pow_tensor_tensor",
+  "script": "/workspace/FlagTree/.cache/flaggems_debugger_batch/front_two_classes_full_final/direct_runs/20260626_150558/pow_tensor_tensor/tensor_tensor/case.py",
+  "selected_ops": null,
+  "status": "passed",
+  "summary_file": ".cache/flaggems_debugger_batch/front_two_classes_full_final/direct_runs/20260626_150558/summary.json",
+  "copied_kernel_sources": [
+    "source/generated_kernels/pointwise_dynamic_a73430d7c9faee99895ab3e422077f553f0a456119aa6bde797ea4094679551e13_pow_func_kernel_rank_1_.py",
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/runtime/backend/_ascend/ops/pow.py"
+  ],
+  "copied_log_files": [],
+  "reports_archived": false
+}

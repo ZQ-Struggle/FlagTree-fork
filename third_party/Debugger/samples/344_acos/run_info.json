@@ -1,0 +1,37 @@
+{
+  "case_id": "shape16",
+  "command": "source /usr/local/Ascend/ascend-toolkit/set_env.sh >/dev/null 2>&1; cd /workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/worktrees/FlagGems_direct_instrumented_20260711_122435; exec /usr/local/python3.11.15/bin/python /workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/acos/shape16/case.py",
+  "debug_json_count": 0,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/acos/shape16/debug_reports",
+  "debug_txt_count": 0,
+  "description": "torch.acos pointwise shape=(16,)",
+  "duration_sec": 180.33966875076294,
+  "exit_code": null,
+  "first_error": "first_report_timeout",
+  "first_report_timeout_sec": 180,
+  "include_names": [
+    "acos"
+  ],
+  "last_report_time": null,
+  "op": "acos",
+  "report_timeout_sec": 120,
+  "script": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/acos/shape16/case.py",
+  "status": "timeout",
+  "stderr_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/acos/shape16/stderr.log",
+  "stdout_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/acos/shape16/stdout.log",
+  "timeout_reason": "first_report_timeout",
+  "tier": "coverage",
+  "kind": "direct_case",
+  "copied_driver_sources": [
+    "source/case.py"
+  ],
+  "copied_kernel_sources": [
+    "source/kernel_sources/src/flag_gems/ops/acos.py",
+    "source/generated_kernels/pointwise_dynamic_b1b55b4bc8c17d149063e9b2e875f0ce467fb25444c0ff826f96548a8448335a12_acos_kernel_kernel_rank_1_.py"
+  ],
+  "copied_report_files": 0,
+  "copied_log_files": [],
+  "summary_file": ".cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/summary.json",
+  "copied_report_source_locs": [],
+  "reports_archived": false
+}

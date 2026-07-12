@@ -1,0 +1,36 @@
+{
+  "op": "topk_softmax",
+  "tier": "coverage",
+  "kind": "pytest_node",
+  "status": "missing_debug_report",
+  "nodeid": "tests/test_topk_softmax.py::test_topk_softmax[False-input_dtype0-1-4-2-index_dtype0]",
+  "selected_ops": [
+    "topk_softmax"
+  ],
+  "timeout_class": "maybe_heavy",
+  "first_report_timeout_sec": 300,
+  "report_timeout_sec": 180,
+  "node_total_timeout_sec": 1200,
+  "copied_driver_sources": [
+    "source/runner.py",
+    "source/test_source.py"
+  ],
+  "copied_kernel_sources": [
+    "source/kernel_sources/src/flag_gems/fused/topk_softmax.py"
+  ],
+  "copied_report_files": 0,
+  "copied_log_files": [],
+  "summary_file": ".cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/summary.json",
+  "debug_json_count": 0,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_topk_softmax_py_test_topk_softmax_False_input_dtype0_1_4_2_index_dtype0_/debug_reports",
+  "debug_txt_count": 0,
+  "duration_sec": 20.003281354904175,
+  "exit_code": 0,
+  "first_error": "pytest node passed but debugger report is missing",
+  "pytest_result": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_topk_softmax_py_test_topk_softmax_False_input_dtype0_1_4_2_index_dtype0_/pytest_result.json",
+  "stderr_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_topk_softmax_py_test_topk_softmax_False_input_dtype0_1_4_2_index_dtype0_/stderr.log",
+  "stdout_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_topk_softmax_py_test_topk_softmax_False_input_dtype0_1_4_2_index_dtype0_/stdout.log",
+  "timeout_reason": "",
+  "copied_report_source_locs": [],
+  "reports_archived": false
+}

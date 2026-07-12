@@ -1,0 +1,28 @@
+{
+  "case_id": null,
+  "command": null,
+  "copied_driver_sources": [
+    "source/runner.py",
+    "source/test_source.py"
+  ],
+  "copied_report_files": 0,
+  "copied_report_source_locs": [],
+  "debug_json_count": 1,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_zero_py_test_zero_dtype0_shape0_/debug_reports",
+  "debug_txt_count": 1,
+  "description": null,
+  "duration_sec": 24.004103422164917,
+  "nodeid": "tests/test_zero.py::test_zero[dtype0-shape0]",
+  "op": "zero",
+  "script": null,
+  "selected_ops": [
+    "zero"
+  ],
+  "status": "passed",
+  "summary_file": ".cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/summary.json",
+  "copied_kernel_sources": [
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/ops/zero.py"
+  ],
+  "copied_log_files": [],
+  "reports_archived": false
+}

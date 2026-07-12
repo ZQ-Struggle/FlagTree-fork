@@ -1,0 +1,39 @@
+{
+  "case_id": "b2_m8_n8_k16",
+  "command": "source /usr/local/Ascend/ascend-toolkit/set_env.sh >/dev/null 2>&1; cd /workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/worktrees/FlagGems_direct_instrumented_20260711_122435; exec /usr/local/python3.11.15/bin/python /workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/baddbmm/b2_m8_n8_k16/case.py",
+  "debug_json_count": 130,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/baddbmm/b2_m8_n8_k16/debug_reports",
+  "debug_txt_count": 130,
+  "description": "torch.baddbmm small fp32",
+  "duration_sec": 182.12274622917175,
+  "exit_code": 0,
+  "first_error": "/usr/local/python3.11.15/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.",
+  "first_report_timeout_sec": 180,
+  "include_names": [
+    "baddbmm"
+  ],
+  "last_report_time": 1783745327.8493056,
+  "op": "baddbmm",
+  "report_timeout_sec": 120,
+  "script": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/baddbmm/b2_m8_n8_k16/case.py",
+  "status": "passed",
+  "stderr_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/baddbmm/b2_m8_n8_k16/stderr.log",
+  "stdout_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/baddbmm/b2_m8_n8_k16/stdout.log",
+  "timeout_reason": "",
+  "tier": "coverage",
+  "kind": "direct_case",
+  "copied_driver_sources": [
+    "source/case.py"
+  ],
+  "copied_kernel_sources": [
+    "source/kernel_sources/src/flag_gems/ops/baddbmm.py",
+    "source/kernel_sources/src/flag_gems/runtime/backend/_ascend/ops/baddbmm.py",
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/new_samples_direct_20260711/worktrees/FlagGems_direct_instrumented_20260711_122435/src/flag_gems/runtime/backend/_ascend/ops/baddbmm.py",
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/new_samples_direct_20260711/worktrees/FlagGems_direct_instrumented_20260711_122435/src/flag_gems/utils/triton_lang_extension.py"
+  ],
+  "copied_report_files": 0,
+  "copied_log_files": [],
+  "summary_file": ".cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/summary.json",
+  "copied_report_source_locs": [],
+  "reports_archived": false
+}

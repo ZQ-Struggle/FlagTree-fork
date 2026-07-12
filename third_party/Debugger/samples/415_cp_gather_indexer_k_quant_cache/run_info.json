@@ -1,0 +1,36 @@
+{
+  "op": "cp_gather_indexer_k_quant_cache",
+  "tier": "coverage",
+  "kind": "pytest_node",
+  "status": "missing_debug_report",
+  "nodeid": "tests/test_cp_gather_indexer_k_quant_cache.py::test_cp_gather_indexer_k_quant_cache_matches_reference[seq_lens0-16-128-128-3]",
+  "selected_ops": [
+    "cp_gather_indexer_k_quant_cache"
+  ],
+  "timeout_class": "default",
+  "first_report_timeout_sec": 180,
+  "report_timeout_sec": 120,
+  "node_total_timeout_sec": 600,
+  "copied_driver_sources": [
+    "source/runner.py",
+    "source/test_source.py"
+  ],
+  "copied_kernel_sources": [
+    "source/kernel_sources/src/flag_gems/fused/cp_gather_indexer_k_quant_cache.py"
+  ],
+  "copied_report_files": 0,
+  "copied_log_files": [],
+  "summary_file": ".cache/flaggems_debugger_batch/pytest_no_direct_case_rep_run2/pytest_node_runs/20260627_094744/summary.json",
+  "debug_json_count": 0,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_run2/pytest_node_runs/20260627_094744/nodes/tests_test_cp_gather_indexer_k_quant_cache_py_test_cp_gather_indexer_k_quant_cache_matches_reference_seq_lens0_16_128_128_3_/debug_reports",
+  "debug_txt_count": 0,
+  "duration_sec": 20.002747774124146,
+  "exit_code": 0,
+  "first_error": "pytest node passed but debugger report is missing",
+  "pytest_result": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_run2/pytest_node_runs/20260627_094744/nodes/tests_test_cp_gather_indexer_k_quant_cache_py_test_cp_gather_indexer_k_quant_cache_matches_reference_seq_lens0_16_128_128_3_/pytest_result.json",
+  "stderr_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_run2/pytest_node_runs/20260627_094744/nodes/tests_test_cp_gather_indexer_k_quant_cache_py_test_cp_gather_indexer_k_quant_cache_matches_reference_seq_lens0_16_128_128_3_/stderr.log",
+  "stdout_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_run2/pytest_node_runs/20260627_094744/nodes/tests_test_cp_gather_indexer_k_quant_cache_py_test_cp_gather_indexer_k_quant_cache_matches_reference_seq_lens0_16_128_128_3_/stdout.log",
+  "timeout_reason": "",
+  "copied_report_source_locs": [],
+  "reports_archived": false
+}

@@ -1,0 +1,35 @@
+{
+  "case_id": "dim1",
+  "command": "source /usr/local/Ascend/ascend-toolkit/set_env.sh >/dev/null 2>&1; cd /workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/worktrees/FlagGems_direct_instrumented_20260711_122435; exec /usr/local/python3.11.15/bin/python /workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/prod_dim_int/dim1/case.py",
+  "debug_json_count": 0,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/prod_dim_int/dim1/debug_reports",
+  "debug_txt_count": 0,
+  "description": "torch.prod dim=1",
+  "duration_sec": 37.012239933013916,
+  "exit_code": 0,
+  "first_error": "case exited successfully but selected op has no debuggable Triton kernel",
+  "first_report_timeout_sec": 180,
+  "include_names": [
+    "prod_dim_int",
+    "prod"
+  ],
+  "last_report_time": null,
+  "op": "prod_dim_int",
+  "report_timeout_sec": 120,
+  "script": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/prod_dim_int/dim1/case.py",
+  "status": "no_triton_kernel",
+  "stderr_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/prod_dim_int/dim1/stderr.log",
+  "stdout_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/prod_dim_int/dim1/stdout.log",
+  "timeout_reason": "",
+  "tier": "coverage",
+  "kind": "direct_case",
+  "copied_driver_sources": [
+    "source/case.py"
+  ],
+  "copied_kernel_sources": [],
+  "copied_report_files": 0,
+  "copied_log_files": [],
+  "summary_file": ".cache/flaggems_debugger_batch/new_samples_direct_20260711/direct_runs/20260711_122435/summary.json",
+  "copied_report_source_locs": [],
+  "reports_archived": false
+}

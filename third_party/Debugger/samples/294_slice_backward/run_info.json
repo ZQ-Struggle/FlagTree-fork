@@ -1,0 +1,28 @@
+{
+  "case_id": null,
+  "command": null,
+  "copied_driver_sources": [
+    "source/runner.py",
+    "source/test_source.py"
+  ],
+  "copied_report_files": 0,
+  "copied_report_source_locs": [],
+  "debug_json_count": 1,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_slice_backward_py_test_slice_backward_dtype0_1_128_0__1_shape0_/debug_reports",
+  "debug_txt_count": 1,
+  "description": null,
+  "duration_sec": 28.00380539894104,
+  "nodeid": "tests/test_slice_backward.py::test_slice_backward[dtype0-1-128-0--1-shape0]",
+  "op": "slice_backward",
+  "script": null,
+  "selected_ops": [
+    "slice_backward"
+  ],
+  "status": "passed",
+  "summary_file": ".cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/summary.json",
+  "copied_kernel_sources": [
+    "source/kernel_sources/report_sources/.cache/flaggems_debugger_batch/front_two_classes_full_final/worktrees/FlagGems_direct_instrumented_20260626_150558/src/flag_gems/ops/slice_backward.py"
+  ],
+  "copied_log_files": [],
+  "reports_archived": false
+}

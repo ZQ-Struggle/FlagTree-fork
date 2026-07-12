@@ -1,0 +1,34 @@
+{
+  "op": "floor_divide_scalar",
+  "tier": "coverage",
+  "kind": "pytest_node",
+  "status": "pytest_error",
+  "nodeid": "tests/test_floor_divide.py::test_floor_divide_mixed[dtype10-dtype20]",
+  "selected_ops": [
+    "floor_divide_scalar"
+  ],
+  "timeout_class": "default",
+  "first_report_timeout_sec": 180,
+  "report_timeout_sec": 120,
+  "node_total_timeout_sec": 600,
+  "copied_driver_sources": [
+    "source/runner.py",
+    "source/test_source.py"
+  ],
+  "copied_kernel_sources": [],
+  "copied_report_files": 0,
+  "copied_log_files": [],
+  "summary_file": ".cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/summary.json",
+  "debug_json_count": 0,
+  "debug_report_dir": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_floor_divide_py_test_floor_divide_mixed_dtype10_dtype20_/debug_reports",
+  "debug_txt_count": 0,
+  "duration_sec": 20.003288984298706,
+  "exit_code": 1,
+  "first_error": "pytest exit code 1",
+  "pytest_result": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_floor_divide_py_test_floor_divide_mixed_dtype10_dtype20_/pytest_result.json",
+  "stderr_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_floor_divide_py_test_floor_divide_mixed_dtype10_dtype20_/stderr.log",
+  "stdout_log": "/workspace/FlagTree/.cache/flaggems_debugger_batch/pytest_no_direct_case_rep_continue/pytest_node_runs/20260627_100852/nodes/tests_test_floor_divide_py_test_floor_divide_mixed_dtype10_dtype20_/stdout.log",
+  "timeout_reason": "",
+  "copied_report_source_locs": [],
+  "reports_archived": false
+}
