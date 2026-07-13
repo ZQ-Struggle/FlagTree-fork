@@ -547,7 +547,7 @@ def test_compiled_design_example_instrumented_ir_exports_final_debugger_report(m
     assert "flagtree.debug.record_size = 64 : i32" in instrumented_ttir
     assert "flagtree.debug.records_per_instance = 10 : i32" in instrumented_ttir
     assert "tt.atomic_rmw" not in instrumented_ttir
-    assert "tensor<8x!tt.ptr<i32>>" not in instrumented_ttir
+    assert "tensor<8x!tt.ptr<i32>>" in instrumented_ttir
     assert "tt.store" in instrumented_ttir
     assert 'flagtree.debug.hidden_arg_type = "!tt.ptr<i32>"' in instrumented_ttir
     assert "flagtree_debug.record_summary" not in ttadapter_ir

@@ -13,6 +13,7 @@
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Ptr/IR/PtrDialect.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -23,9 +24,9 @@
 #include "mlir/IR/FunctionInterfaces.h"
 #endif
 #include "mlir/IR/Operation.h"
+#include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassRegistry.h"
-#include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
 #include "triton/Dialect/Triton/IR/Types.h"
 #include "llvm/ADT/DenseMap.h"
@@ -216,8 +217,7 @@ bool isMemoryLikeOp(Operation *op) {
   StringRef opName = op->getName().getStringRef();
   return opName.contains("load") || opName.contains("store") ||
          opName.contains("atomic") || opName.contains("async_copy") ||
-         opName.contains("async_tma_copy") ||
-         opName == "memref.copy" ||
+         opName.contains("async_tma_copy") || opName == "memref.copy" ||
          opName == "tt.experimental_tensormap_create" ||
          opName == "tt.experimental_tensormap_fenceproxy_acquire";
 }
@@ -451,13 +451,13 @@ bool hasUnsupportedSideEffectsForDynamicDebug(Operation *op) {
 }
 
 bool isSafeDynamicDebugValue(Operation *op) {
-  // Keep static metadata for all tracked operations, but only attach device-side
-  // observers to values whose use is known to be backend-safe.  CANN9's current
-  // path is particularly sensitive to Triton block/tensor pointers
+  // Keep static metadata for all tracked operations, but only attach
+  // device-side observers to values whose use is known to be backend-safe.
+  // CANN9's current path is particularly sensitive to Triton block/tensor
+  // pointers
   // (!tt.ptr<tensor<...>>) and mutation/alias-heavy ops: a debug side-use can
   // change legality or scheduling even when the original kernel is valid.
-  return !opUsesTritonTensorPointerType(op) &&
-         !opUsesDynamicShapedType(op) &&
+  return !opUsesTritonTensorPointerType(op) && !opUsesDynamicShapedType(op) &&
          !hasUnsupportedSideEffectsForDynamicDebug(op);
 }
 
@@ -650,8 +650,8 @@ bool isLevel1LargeAuxiliarySummary(Operation *op, Type resultType,
     return false;
 
   StringRef opName = op->getName().getStringRef();
-  if (opName == "tt.load" || opName == "memref.load" ||
-      opName == "tt.dot" || opName == "tt.reduce" || opName == "tt.scan")
+  if (opName == "tt.load" || opName == "memref.load" || opName == "tt.dot" ||
+      opName == "tt.reduce" || opName == "tt.scan")
     return false;
 
   uint64_t elementCount = getStaticElementCount(resultType);
@@ -854,6 +854,23 @@ Value loadI32(OpBuilder &builder, Location loc, Value ptr) {
                                         triton::EvictionPolicy::NORMAL, false);
 }
 
+Value loadRingHeaderI32(OpBuilder &builder, Location loc, Value ctrlWordPtr,
+                        int64_t fieldOffset) {
+  assert(fieldOffset >= 0 && fieldOffset < kRingHeaderBytes &&
+         fieldOffset % 4 == 0 && "ring header field must be word-aligned");
+  constexpr int64_t kHeaderWords = kRingHeaderBytes / 4;
+  auto i32TensorType =
+      RankedTensorType::get({kHeaderWords}, builder.getI32Type());
+  Value offsets = builder.create<triton::MakeRangeOp>(
+      loc, i32TensorType, 0, static_cast<int32_t>(kHeaderWords));
+  Value ptrs = addWordOffsetLike(builder, loc, ctrlWordPtr, offsets);
+  Value header =
+      builder.create<triton::LoadOp>(loc, ptrs, triton::CacheModifier::NONE,
+                                     triton::EvictionPolicy::NORMAL, false);
+  Value index = builder.create<arith::ConstantIndexOp>(loc, fieldOffset / 4);
+  return builder.create<tensor::ExtractOp>(loc, header, ValueRange{index});
+}
+
 void storeValue(OpBuilder &builder, Location loc, Value ptr, Value value,
                 Value mask = {}) {
   if (mask) {
@@ -927,11 +944,35 @@ void storeRecordWords(OpBuilder &builder, Location loc, Value ctrlBytePtr,
   assert((static_cast<int64_t>(scalarWords.size()) == kLegacyRecordWords ||
           static_cast<int64_t>(scalarWords.size()) == kRecordWords) &&
          "debug records are fixed-width legacy or bundle records");
+  const int64_t wordCount = static_cast<int64_t>(scalarWords.size());
+  auto i32TensorType = RankedTensorType::get({wordCount}, builder.getI32Type());
+
+  Value lanesI32 = builder.create<triton::MakeRangeOp>(
+      loc, i32TensorType, 0, static_cast<int32_t>(wordCount));
+  Value recordOffsetI32 =
+      builder.create<arith::TruncIOp>(loc, builder.getI32Type(), recordOffset);
+  Value recordOffsetSplat =
+      builder.create<triton::SplatOp>(loc, i32TensorType, recordOffsetI32);
+  Value wordOffsets =
+      builder.create<arith::AddIOp>(loc, recordOffsetSplat, lanesI32);
+  Value ptrs = addWordOffsetLike(builder, loc, ctrlBytePtr, wordOffsets);
+
+  Value values = createIntegerConstantLike(builder, loc, i32TensorType, 0);
   for (auto indexed : llvm::enumerate(scalarWords)) {
-    storeI32Value(builder, loc, ctrlBytePtr, recordOffset,
-                  static_cast<int64_t>(indexed.index()) * 4, indexed.value(),
-                  mask);
+    Value lane =
+        createIntegerConstantLike(builder, loc, i32TensorType, indexed.index());
+    Value laneMask = builder.create<arith::CmpIOp>(
+        loc, arith::CmpIPredicate::eq, lanesI32, lane);
+    Value word =
+        builder.create<triton::SplatOp>(loc, i32TensorType, indexed.value());
+    values = builder.create<arith::SelectOp>(loc, laneMask, word, values);
   }
+
+  builder.create<scf::IfOp>(loc, mask,
+                            [&](OpBuilder &thenBuilder, Location thenLoc) {
+                              storeValue(thenBuilder, thenLoc, ptrs, values);
+                              thenBuilder.create<scf::YieldOp>(thenLoc);
+                            });
 }
 
 Value createAtomicRMW(OpBuilder &builder, Location loc, triton::RMWOp rmwOp,
@@ -1040,15 +1081,12 @@ createRecordLoweringContext(OpBuilder &builder, FunctionOpInterface func,
       builder, loc, static_cast<uint64_t>(normalizedRecordsPerInstance));
   Value instanceBase = builder.create<arith::MulIOp>(loc, logicalInstanceId,
                                                      recordsPerInstanceI64);
-  Value capacityPtr = absoluteFieldPointer(
-      builder, loc, ctrlBytePtr, kHeaderCapacityOffset, builder.getI32Type());
-  Value capacity = loadI32(builder, loc, capacityPtr);
+  Value capacity =
+      loadRingHeaderI32(builder, loc, ctrlBytePtr, kHeaderCapacityOffset);
   Value capacityI64 =
       builder.create<arith::ExtUIOp>(loc, builder.getI64Type(), capacity);
-  Value payloadOffsetPtr =
-      absoluteFieldPointer(builder, loc, ctrlBytePtr,
-                           kHeaderPayloadOffsetOffset, builder.getI32Type());
-  Value payloadOffset = loadI32(builder, loc, payloadOffsetPtr);
+  Value payloadOffset =
+      loadRingHeaderI32(builder, loc, ctrlBytePtr, kHeaderPayloadOffsetOffset);
   Value payloadOffsetBytes =
       builder.create<arith::ExtUIOp>(loc, builder.getI64Type(), payloadOffset);
   Value payloadInstanceBaseBytes = builder.create<arith::MulIOp>(
@@ -1543,8 +1581,8 @@ bool canComputeAddressSummaryForMemoryOp(Operation *op) {
   return isSupportedPrefixMask(memoryMaskOperand(op), slice->offsets);
 }
 
-bool canComputeAddressSummaryForMemoryTarget(Operation *op,
-                                             const MemoryAddressTarget &target) {
+bool canComputeAddressSummaryForMemoryTarget(
+    Operation *op, const MemoryAddressTarget &target) {
   if (shouldUseRepresentativeAddressOnly(op))
     return false;
   Value pointer = target.pointer;
@@ -2470,8 +2508,7 @@ void emitFullValueRefStores(OpBuilder &builder, Location loc,
 }
 
 void emitTimelineStores(OpBuilder &builder, Location loc, Operation *recordOp,
-                        Value ctrlBytePtr, Value recordOffset,
-                        Value inBounds) {
+                        Value ctrlBytePtr, Value recordOffset, Value inBounds) {
   Value startCycle = recordOp->getOperand(0);
   Value endCycle = recordOp->getOperand(1);
   if (startCycle.getType() != builder.getI64Type())
@@ -2482,10 +2519,17 @@ void emitTimelineStores(OpBuilder &builder, Location loc, Operation *recordOp,
         builder.create<arith::ExtUIOp>(loc, builder.getI64Type(), endCycle);
   Value durationCycle =
       builder.create<arith::SubIOp>(loc, endCycle, startCycle);
-  storeI64(builder, loc, ctrlBytePtr, recordOffset, 16, startCycle, inBounds);
-  storeI64(builder, loc, ctrlBytePtr, recordOffset, 24, endCycle, inBounds);
-  storeI64(builder, loc, ctrlBytePtr, recordOffset, 32, durationCycle,
-           inBounds);
+  auto [startLow, startHigh] = splitI64ToI32Words(builder, loc, startCycle);
+  auto [endLow, endHigh] = splitI64ToI32Words(builder, loc, endCycle);
+  auto [durationLow, durationHigh] =
+      splitI64ToI32Words(builder, loc, durationCycle);
+  Value zero = createI32Constant(builder, loc, 0);
+  SmallVector<Value, kRecordWords> words = {
+      zero,   zero,    zero,        zero,         startLow, startHigh,
+      endLow, endHigh, durationLow, durationHigh, zero,     zero,
+      zero,   zero,    zero,        zero,
+  };
+  storeRecordWords(builder, loc, ctrlBytePtr, recordOffset, words, inBounds);
 }
 
 bool canLowerRecordOp(Operation *op) {
@@ -2506,8 +2550,7 @@ bool canLowerRecordOp(Operation *op) {
   if (opName == kRecordFullValueRefOpName)
     return op->getNumOperands() == 1 && op->getAttrOfType<IntegerAttr>("op_id");
   if (opName == kRecordTimelineOpName)
-    return op->getNumOperands() == 2 &&
-           op->getAttrOfType<IntegerAttr>("op_id");
+    return op->getNumOperands() == 2 && op->getAttrOfType<IntegerAttr>("op_id");
   return false;
 }
 
@@ -2819,8 +2862,8 @@ Value createDotIdentityProxy(OpBuilder &builder,
     return dotResult;
 
   builder.setInsertionPointAfter(target.op);
-  Value one =
-      createDynamicFloatOneLike(builder, target.op->getLoc(), dotResult.getType());
+  Value one = createDynamicFloatOneLike(builder, target.op->getLoc(),
+                                        dotResult.getType());
   if (!one)
     return dotResult;
 
@@ -2828,7 +2871,8 @@ Value createDotIdentityProxy(OpBuilder &builder,
   // debugger side-use: it may force an unsupported UB memref.alloc during HIVM
   // lowering.  Route the value through an identity epilogue op and keep the
   // metadata attached to the original dot op_id, so reports still show tt.dot.
-  Value proxy = builder.create<arith::MulFOp>(target.op->getLoc(), dotResult, one);
+  Value proxy =
+      builder.create<arith::MulFOp>(target.op->getLoc(), dotResult, one);
   proxy.getDefiningOp()->setAttr("flagtree.debug.proxy_for_op_id",
                                  builder.getI32IntegerAttr(target.opId));
   dotResult.replaceUsesWithIf(proxy, [&](OpOperand &use) {
@@ -2939,11 +2983,11 @@ Operation *createRecordSummaryBundleOp(OpBuilder &builder, Operation *anchor,
   return builder.create(state);
 }
 
-Operation *createCaptureMemoryAddressOp(OpBuilder &builder, Operation *anchor,
-                                        const InstrumentationTarget &target,
-                                        const MemoryAddressTarget &addressTarget,
-                                        StringRef eventKind,
-                                        int32_t recordIndex) {
+Operation *
+createCaptureMemoryAddressOp(OpBuilder &builder, Operation *anchor,
+                             const InstrumentationTarget &target,
+                             const MemoryAddressTarget &addressTarget,
+                             StringRef eventKind, int32_t recordIndex) {
   Value pointer = addressTarget.pointer;
   if (!pointer)
     return anchor;
@@ -3137,10 +3181,10 @@ void insertRecordOps(OpBuilder &builder, const InstrumentationTarget &target,
           target.addrLevel >= 1 &&
           canComputeAddressSummaryForMemoryTarget(target.op, addressTarget);
       if (emitAddressSummary && target.level == RecordLevel::LEVEL_SUMMARY) {
-        uint64_t elementCount = getStaticElementCount(addressTarget.pointer.getType());
-        emitAddressSummary =
-            elementCount != 0 &&
-            elementCount <= kLevel1AddressSummaryElementLimit;
+        uint64_t elementCount =
+            getStaticElementCount(addressTarget.pointer.getType());
+        emitAddressSummary = elementCount != 0 &&
+                             elementCount <= kLevel1AddressSummaryElementLimit;
       }
       if (emitAddressSummary) {
         StringRef summaryKinds[] = {
@@ -3160,9 +3204,9 @@ void insertRecordOps(OpBuilder &builder, const InstrumentationTarget &target,
         appendRecordPlanEntry(recordPlan, nextRecordIndex, target,
                               kRecordKindMemoryEvent, /*collectorKind=*/0,
                               /*resultType=*/0, memoryEventKindId(eventKind));
-        anchor = createCaptureMemoryAddressOp(builder, anchor, target,
-                                              addressTarget, eventKind,
-                                              nextRecordIndex++);
+        anchor =
+            createCaptureMemoryAddressOp(builder, anchor, target, addressTarget,
+                                         eventKind, nextRecordIndex++);
       }
     }
   }
@@ -3269,8 +3313,9 @@ Value extractI32WordFromSingleElementTensor(Value source) {
   return word;
 }
 
-bool simplifyOneDebugRecordMaterialize(OpBuilder &builder, Operation *op,
-                                       SmallVectorImpl<Operation *> &maybeDead) {
+bool simplifyOneDebugRecordMaterialize(
+    OpBuilder &builder, Operation *op,
+    SmallVectorImpl<Operation *> &maybeDead) {
   if (op->getName().getStringRef() != kMaterializeInDestinationOpName ||
       op->getNumOperands() < 2)
     return false;
@@ -3347,10 +3392,10 @@ struct InsertInstrumentationPass
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InsertInstrumentationPass);
 
   void getDependentDialects(DialectRegistry &registry) const override {
-    registry
-        .insert<FlagTreeDebugDialect, arith::ArithDialect, math::MathDialect,
-                memref::MemRefDialect, ptr::PtrDialect, tensor::TensorDialect,
-                triton::TritonDialect>();
+    registry.insert<FlagTreeDebugDialect, arith::ArithDialect,
+                    math::MathDialect, memref::MemRefDialect, ptr::PtrDialect,
+                    scf::SCFDialect, tensor::TensorDialect,
+                    triton::TritonDialect>();
   }
 
   void runOnOperation() override {
@@ -3434,8 +3479,7 @@ struct InsertInstrumentationPass
         ArrayAttr collectors = buildCollectorArrayForValue(
             builder, level, observedValue.getType());
         const bool valueHasSummary =
-            canEmitDynamicSummary &&
-            collectors && !collectors.empty() &&
+            canEmitDynamicSummary && collectors && !collectors.empty() &&
             (shouldEmitDynamicSummary(op, observedValue.getType(), level) ||
              fullDumpSource == kFullDumpSourceStatementOperand);
         std::optional<FullDumpSpec> dump =
@@ -3460,21 +3504,21 @@ struct InsertInstrumentationPass
       Value fullValue = observedFullDumpValue(op, valueSource);
       ArrayAttr summaryCollectors;
       if (!timelineOnly && canEmitDynamicSummary && fullValue)
-        summaryCollectors = buildCollectorArrayForValue(
-            builder, level, fullValue.getType());
+        summaryCollectors =
+            buildCollectorArrayForValue(builder, level, fullValue.getType());
       const bool hasSummary =
           !timelineOnly && canEmitDynamicSummary && summaryCollectors &&
           !summaryCollectors.empty() &&
           shouldEmitDynamicSummary(op, fullValue.getType(), level);
-      const bool hasMemoryEvent =
-          !timelineOnly && canEmitDynamicMemory && addrLevel > 0 &&
-          isMemoryLikeOp(op) &&
-          memoryPointerOperand(op);
+      const bool hasMemoryEvent = !timelineOnly && canEmitDynamicMemory &&
+                                  addrLevel > 0 && isMemoryLikeOp(op) &&
+                                  memoryPointerOperand(op);
       const bool fullValueAllowed =
           canEmitDynamicSummary || valueSource == kFullDumpSourceStoreValue;
       std::optional<FullDumpSpec> valueDump =
           !timelineOnly && level2 && fullValue && fullValueAllowed
-              ? getFullDumpSpecForObservedValue(fullValue.getType(), valueSource)
+              ? getFullDumpSpecForObservedValue(fullValue.getType(),
+                                                valueSource)
               : std::nullopt;
       std::optional<FullDumpSpec> addressDump =
           !timelineOnly && level2 && canEmitDynamicMemory && addrLevel >= 2 &&
@@ -3499,9 +3543,9 @@ struct InsertInstrumentationPass
       const bool hasFullValueRef = valueDump.has_value();
       const bool hasFullAddressRef = addressDump.has_value();
       const bool hasTimeline = timelineEnabled && shouldEmitTimeline(op);
-      const bool hasPrimaryRecords =
-          hasSummary || hasMemoryEvent || hasFullValueRef ||
-          hasFullAddressRef || hasTimeline;
+      const bool hasPrimaryRecords = hasSummary || hasMemoryEvent ||
+                                     hasFullValueRef || hasFullAddressRef ||
+                                     hasTimeline;
 
       if (hasPrimaryRecords) {
         op->setAttr(kAttrInstrumented, builder.getBoolAttr(true));
@@ -3609,9 +3653,8 @@ struct InsertInstrumentationPass
       if (hasInstrumentedOps && !metadataOnlyCompilePath)
         annotateFunction(func, builder);
       if (hasInstrumentedOps && enableHiddenArgAbi)
-        hiddenArgInsertFailed |=
-            failed(ensureHiddenDebugArgument(func, builder,
-                                             enableHiddenArgAbi));
+        hiddenArgInsertFailed |= failed(
+            ensureHiddenDebugArgument(func, builder, enableHiddenArgAbi));
     });
 
     if (hiddenArgInsertFailed) {

@@ -281,6 +281,12 @@ def compile(src, target=None, options=None, _env_vars=None):
         **options.__dict__,
         **env_vars,
     }
+    # Debug instrumentation consumes target identity in the TTIR stage.  Ascend
+    # options do not define backend_name, so populate it from GPUTarget before
+    # instrumentation selects the runtime transfer backend.
+    metadata["backend_name"] = str(target.backend)
+    metadata["debug_backend_name"] = str(target.backend)
+    metadata["debug_target_name"] = str(target.arch)
     metadata["triton_version"] = __version__
     # run compilation pipeline  and populate metadata
     stages = dict()

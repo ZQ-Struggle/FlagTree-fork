@@ -279,6 +279,13 @@ def compile(src, target=None, options=None, _env_vars=None):
         **options.__dict__,
         **env_vars,
     }
+    # Debug instrumentation consumes these fields during the TTIR stage.  They
+    # must come from GPUTarget: backend options do not define backend_name on
+    # every target (notably Ascend), and filling them after lowering is too late
+    # for both kernel metadata and transfer-backend selection.
+    metadata["backend_name"] = str(target.backend)
+    metadata["debug_backend_name"] = str(target.backend)
+    metadata["debug_target_name"] = str(target.arch)
     metadata["triton_version"] = __version__
     # run compilation pipeline  and populate metadata
     stages = dict()

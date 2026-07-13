@@ -132,7 +132,7 @@ BackendKind parseBackendKind(std::string_view backendName) {
   if (lowered == "musa") {
     return BackendKind::MUSA;
   }
-  if (lowered == "cann" || lowered == "ascend") {
+  if (lowered == "cann" || lowered == "ascend" || lowered == "npu") {
     return BackendKind::CANN;
   }
   return BackendKind::UNKNOWN;

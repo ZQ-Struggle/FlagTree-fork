@@ -112,6 +112,27 @@ module attributes {flagtree.debug.addr_level = 1 : i32, flagtree.debug.enable_hi
 
 // -----
 
+module attributes {flagtree.debug.addr_level = 0 : i32, flagtree.debug.enable_hidden_arg_abi = true, flagtree.debug.record_level = 1 : i32, flagtree.debug.timeline_enabled = true, flagtree.debug.timeline_only = true} {
+  // CHECK-LABEL: tt.func @tt_timeline_uses_contiguous_ring_access
+  tt.func @tt_timeline_uses_contiguous_ring_access(%ptr: !tt.ptr<f32>) {
+    // Header fields are extracted from one aligned 32-byte load.
+    // CHECK: tt.load {{.*}} : tensor<8x!tt.ptr<i32>>
+    // CHECK: tensor.extract {{.*}} : tensor<8xi32>
+    // CHECK: tt.load {{.*}} : tensor<8x!tt.ptr<i32>>
+    // CHECK: tensor.extract {{.*}} : tensor<8xi32>
+    // CHECK: %[[LOAD:.*]] = tt.load %arg0
+    %0 = tt.load %ptr {flagtree.debug.op_id = 51 : i32, flagtree.debug.scope_id = 1 : i32, flagtree.debug.is_memory_op = true} : !tt.ptr<f32>
+    // A timeline record is committed as one guarded 64-byte store, rather
+    // than scalar GM stores that are illegal on the Ascend AIV path.
+    // CHECK: scf.if
+    // CHECK: tt.store {{.*}} : tensor<16x!tt.ptr<i32>>
+    // CHECK-NOT: tt.store {{.*}} : !tt.ptr<i32>
+    tt.return
+  }
+}
+
+// -----
+
 module attributes {flagtree.debug.addr_level = 1 : i32, flagtree.debug.record_level = 1 : i32} {
   // CHECK-LABEL: tt.func @tt_address_summary
   tt.func @tt_address_summary(%ptr: !tt.ptr<f32>, %n: i32) {
