@@ -1,6 +1,6 @@
 # C 模块实现说明
 
-**负责人**：颜臻  
+**负责人**：颜臻
 **模块路径**：`third_party/Debugger/lib/Instrumentation/` + `third_party/Debugger/include/Debugger/Instrumentation/`
 **参考文档**：`debugger分工.md` §3.3、§6.2
 
@@ -246,7 +246,7 @@ NAN_COUNT → INF_COUNT → ZERO_COUNT → MEAN_FINITE → MIN_FINITE → MAX_FI
 每个函数填充 `RecordHeader`（`recordKind`、`opId`、`logicalInstanceId`）和 payload 字段，保证 record 大小严格等于 32 bytes（由 `Protocol.h` 的 `static_assert` 约束）。
 
 #### `Writer.cpp` ring buffer 操作（完整）
-- `computeLogicalInstanceId(pid0, pid1, pid2, num_programs0, num_programs1)`  
+- `computeLogicalInstanceId(pid0, pid1, pid2, num_programs0, num_programs1)`
   实现公式：`pid0 + pid1 * num_programs0 + pid2 * num_programs0 * num_programs1`
 - `makeRingBufferHeader` / `initializeRingBufferStorage`
 - `appendRecordToRingBuffer`（含 overflow 计数和 `RB_FLAG_OVERFLOW` 标志）

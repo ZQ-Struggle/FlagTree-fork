@@ -22,8 +22,9 @@ target；普通 `import triton` 与非 debugger kernel 保持可用。禁用版�
 `triton.enable_debug()` 或 `tl.debug_collect_start/end` 会明确提示使用
 `-DFLAGTREE_ENABLE_DEBUGGER=ON` 重新构建。
 
-可运行示例位于 `third_party/Debugger/examples/`，FlagGems 回归样例位于
-`third_party/Debugger/samples/`。
+可运行示例位于 `third_party/Debugger/examples/`，精简的 FlagGems 回归样例位于
+`third_party/Debugger/samples/`。生成的 kernel、报告、cache 和复制的第三方源码
+不进入仓库。
 
 ## 目的
 
