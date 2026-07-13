@@ -10,6 +10,7 @@ GPU kernel. It validates the public API and artifact/degradation contract before
 running a larger Ascend workload.
 """
 
+import importlib
 import json
 import os
 import pathlib
@@ -23,6 +24,8 @@ import triton.knobs as knobs
 import triton.profiler as proton
 from triton.compiler import LazyDict
 from triton._C.libproton import proton as libproton
+
+proton_profile = importlib.import_module("triton.profiler.profile")
 
 
 @pytest.fixture(autouse=True)
@@ -71,6 +74,30 @@ def _require_real_cann_environment():
         pytest.skip(f"torch_npu is not available: {exc!r}")
     if not hasattr(torch, "npu") or not torch.npu.is_available():
         pytest.skip("torch_npu is installed, but no NPU is available")
+
+
+def test_ir_record_buffer_capacity(monkeypatch):
+    monkeypatch.delenv("PROTON_IR_RECORD_BUFFER_MB", raising=False)
+    assert proton_profile._instrumentation_record_capacity() == 524288
+
+    monkeypatch.setenv("PROTON_IR_RECORD_BUFFER_MB", "64")
+    assert proton_profile._instrumentation_record_capacity() == 1048576
+
+    monkeypatch.setenv("PROTON_IR_RECORD_BUFFER_MB", "0")
+    with pytest.raises(ValueError, match="must be a positive integer"):
+        proton_profile._instrumentation_record_capacity()
+
+
+def test_ir_record_capacity_is_part_of_cache_mode(monkeypatch):
+    monkeypatch.setenv("PROTON_IR_RECORD_BUFFER_MB", "32")
+    proton_profile._activate_instrumentation()
+    try:
+        assert knobs.compilation.instrumentation_mode == (
+            "debugger:record_capacity=524288"
+        )
+    finally:
+        proton_profile._deactivate_instrumentation()
+    assert knobs.compilation.instrumentation_mode == ""
 
 
 @pytest.fixture(scope="session")

@@ -215,6 +215,7 @@ python3 third_party/proton/flagtree_profiler/scripts/cann_vendor_raw_report.py \
 
 - 昇腾上 `hook="triton"` 默认启用 IR instrumentation，不启动 CANN `aclprof/msprof`。需要恢复旧 CANN 路径时设置环境变量 `PROTON_CANN_TRITON_HOOK_LEGACY=1`。
 - `runtime_host_timing_fallback` 默认开启。当 CANN runtime event 不完整时，Profiler 会用 host timing 辅助关联 CANN op summary 和 Proton scope；普通用户不需要配置。需要关闭时设置环境变量 `PROTON_CANN_RUNTIME_HOST_FALLBACK=0`。
+- IR 自动插桩默认为每次 kernel launch 分配 32 MiB record buffer（`524288` 条、64 bytes/条），kernel 结束导出后释放。可通过 `PROTON_IR_RECORD_BUFFER_MB=<MiB>` 调整；复杂 kernel 每个 program instance 包含更多 IR op，需要更大的 buffer 才能覆盖相同数量的 instance。
 - `aclprof_output_path` 默认不需要设置。Profiler 会使用内部临时目录收集 CANN 原始数据，导入 `profile.vendor.json` 后自动清理。需要保留 CANN 原始 `PROF_*` 和 CSV 时，设置环境变量 `PROTON_CANN_PROFILE_OUTPUT=/tmp/my_triton_profile/msprof`。
 - `aclprof_runtime_enabled=false`：关闭 Proton 内部启动 CANN aclprof。适合只做已有 CSV 的 post-import 或外部 `msprof` 包裹验证。
 - `aclprof_auto_export=false`：关闭 `finalize()` 内部自动 `msprof --export=on`。适合调试 CANN 原始 profiler 目录或外部导出流程。

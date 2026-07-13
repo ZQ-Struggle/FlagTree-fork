@@ -952,7 +952,7 @@ def deactivate() -> None:
     try:
         import triton
 
-        if triton.knobs.compilation.instrumentation_mode == "debugger":
+        if str(triton.knobs.compilation.instrumentation_mode).startswith("debugger"):
             triton.knobs.compilation.instrumentation_mode = ""
     except Exception:
         pass

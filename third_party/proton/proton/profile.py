@@ -12,6 +12,9 @@ from typing import Optional
 
 DEFAULT_PROFILE_NAME = "proton"
 _CANN_TRITON_LEGACY_ENV = "PROTON_CANN_TRITON_HOOK_LEGACY"
+_IR_RECORD_BUFFER_MB_ENV = "PROTON_IR_RECORD_BUFFER_MB"
+_IR_RECORD_SIZE_BYTES = 64
+_DEFAULT_IR_RECORD_BUFFER_MB = 32
 _active_sessions: dict[int, dict[str, object]] = {}
 
 
@@ -53,11 +56,28 @@ def _set_instrumentation_mode(value: str) -> None:
         pass
 
 
+def _instrumentation_record_capacity() -> int:
+    value = os.getenv(_IR_RECORD_BUFFER_MB_ENV, "").strip()
+    buffer_mb = _DEFAULT_IR_RECORD_BUFFER_MB if not value else int(value)
+    if buffer_mb <= 0:
+        raise ValueError(f"{_IR_RECORD_BUFFER_MB_ENV} must be a positive integer")
+    return buffer_mb * 1024 * 1024 // _IR_RECORD_SIZE_BYTES
+
+
 def _activate_instrumentation() -> None:
     from triton.runtime import debugger
 
+    record_capacity = _instrumentation_record_capacity()
     debugger.clear_exported_runs()
-    debugger.activate(record_level=1, addr_level=0, output_dir=None)
+    debugger.activate(
+        record_level=1,
+        addr_level=0,
+        record_capacity=record_capacity,
+        output_dir=None,
+    )
+    triton.knobs.compilation.instrumentation_mode = (
+        f"debugger:record_capacity={record_capacity}"
+    )
     _set_instrumentation_mode("debugger_auto")
 
 

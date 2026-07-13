@@ -271,6 +271,12 @@ PY
 collect region 内非 constant tracked IR op，轻量 op 可能因为计数器分辨率显示为
 `duration_cycle=0`。
 
+自动插桩的 record buffer 默认是 32 MiB（`524288` 条、64 bytes/条），每次
+kernel launch 导出后释放。设置 `PROTON_IR_RECORD_BUFFER_MB=<MiB>` 可以覆盖默认
+值；该值会进入编译 cache key，因此修改后会自动重新编译插桩 kernel。更大的
+buffer 能覆盖更多 program instance，但也会增加设备侧插桩扰动、导出时间和
+`timeline.json` 体积。
+
 如果要验证旧 CANN legacy 路径，运行前设置：
 
 ```bash
