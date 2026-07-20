@@ -23,6 +23,7 @@ __doc__ = _mad.extend_doc(__doc__)
 pytest.importorskip("torch")
 
 import triton
+import triton.debugger as debugger
 import triton.language as tl
 from triton.backends.compiler import GPUTarget
 from triton.compiler import ASTSource
@@ -159,14 +160,14 @@ def test_module_a_A2_zero_record_collect_disables_hidden_arg(fresh_triton_cache,
 @pytest.mark.module_a
 @pytest.mark.module_a_a2
 def test_module_a_A2_debug_launch_hidden_arg_follows_debugger_api(monkeypatch):
-    from triton.compiler import flagtree_debug
+    from flagtree_debugger import compiler as flagtree_debug
 
     monkeypatch.delenv("TRITON_FLAGTREE_DEBUG_LAUNCH_PTR", raising=False)
-    triton.enable_debug()
+    debugger.activate()
     try:
         assert flagtree_debug._debug_launch_hidden_arg_enabled() is True
     finally:
-        triton.disable_debug()
+        debugger.deactivate()
 
 
 @pytest.mark.module_a

@@ -399,7 +399,20 @@ class CMakeBuildPy(build_py):
     def run(self) -> None:
         self.run_command('build_ext')
         helper.write_flagtree_backend_file()
-        return super().run()
+        super().run()
+
+        # CMake writes extensions directly into a reusable build_lib tree.
+        # Do not let artifacts from an older monolithic build leak into a
+        # newly built core-only wheel.
+        extension_dir = Path(self.build_lib) / "triton" / "_C"
+        if extension_dir.is_dir():
+            for artifact in extension_dir.glob("libproton*"):
+                artifact.unlink()
+        for cache_dir in Path(self.build_lib).rglob("__pycache__"):
+            shutil.rmtree(cache_dir)
+        for pattern in ("*.pyc", "*.pyo"):
+            for bytecode in Path(self.build_lib).rglob(pattern):
+                bytecode.unlink()
 
 
 class CMakeExtension(Extension):
@@ -533,7 +546,7 @@ class CMakeBuild(build_ext):
         ]
         cmake_args += [f"-D{option}={os.getenv(option)}" for option in passthrough_args if option in os.environ]
 
-        if check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
+        if check_env_flag("TRITON_BUILD_PROTON", "OFF"):
             cmake_args += self.get_proton_cmake_args()
 
         if is_offline_build():
@@ -664,9 +677,6 @@ def get_package_dirs():
             for x in os.listdir(backend.tools_dir):
                 yield (f"triton.tools.extra.{x}", os.path.join(backend.tools_dir, x))
 
-    if check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
-        yield ("triton.profiler", "third_party/proton/proton")
-        yield ("triton.profiler.hooks", "third_party/proton/proton/hooks")
 
 
 def get_packages():
@@ -692,8 +702,6 @@ def get_packages():
     elif helper.flagtree_backend == "mthreads":
         yield f"triton/language/extra/musa"
 
-    if check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
-        yield "triton.profiler"
 
 
 def add_link_to_backends(external_only):
@@ -733,16 +741,8 @@ if helper.flagtree_backend == "xpu":
 # }
 
 
-def add_link_to_proton():
-    proton_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "third_party", "proton", "proton"))
-    proton_install_dir = os.path.join(os.path.dirname(__file__), "python", "triton", "profiler")
-    update_symlink(proton_install_dir, proton_dir)
-
-
 def add_links(external_only):
     add_link_to_backends(external_only=external_only)
-    if not external_only and check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
-        add_link_to_proton()
 
 
 class plugin_bdist_wheel(bdist_wheel):
@@ -796,11 +796,6 @@ class plugin_sdist(sdist):
 
 def get_entry_points():
     entry_points = {}
-    if check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
-        entry_points["console_scripts"] = [
-            "proton-viewer = triton.profiler.viewer:main",
-            "proton = triton.profiler.proton:main",
-        ]
     entry_points["triton.backends"] = [f"{b.name} = triton.backends.{b.name}" for b in backends]
     return entry_points
 
@@ -883,6 +878,10 @@ setup(
     package_dir=dict(get_package_dirs()),
     entry_points=get_entry_points(),
     include_package_data=True,
+    exclude_package_data={
+        "": ["*.py[cod]", "__pycache__/*", "**/__pycache__/*"],
+        "triton": ["_C/libproton*"],
+    },
     ext_modules=[CMakeExtension("triton", "triton/_C/")],
     cmdclass={
         "bdist_wheel": plugin_bdist_wheel,

@@ -15,11 +15,17 @@ import pytest
 
 import triton
 import triton.language as tl
+from flagtree_debugger.native import compiler_binding
 from triton._C.libtriton import ir
-from triton._C.libtriton.passes import flagtree_debug as fd
 from triton.backends.compiler import GPUTarget
 from triton.compiler import ASTSource
 from triton.compiler.compiler import make_backend
+from triton._components import run_compiler_hook
+
+
+fd = compiler_binding()
+if fd is None:
+    pytest.skip("flagtree-debugger native binding is unavailable", allow_module_level=True)
 
 
 def _ast_source(fn, signature, constexprs):
@@ -48,6 +54,12 @@ def _add_stages(backend, stages, options, source):
         backend.add_stages(stages, options, source.language)
     else:
         backend.add_stages(stages, options)
+
+
+def _run_ttir_stage(stages, module, metadata):
+    module = stages["ttir"](module, metadata)
+    run_compiler_hook("ttir.post_optimization", module, metadata)
+    return module
 
 
 def _find_tracked_op(rows, access_type):
@@ -125,7 +137,7 @@ def test_module_a_design_example_debug_flag_reaches_ascend_ir():
     stages = {}
     _add_stages(backend, stages, options, source)
     assert "ttir" in stages
-    ttir_mod = stages["ttir"](mod, metadata)
+    ttir_mod = _run_ttir_stage(stages, mod, metadata)
     post_debug_ttir = str(ttir_mod)
 
     assert metadata["debug_enabled"] is True
@@ -195,7 +207,7 @@ def test_module_a_hidden_arg_abi_flag_adds_tt_func_argument(monkeypatch):
     }
     stages = {}
     _add_stages(backend, stages, options, source)
-    ttir_mod = stages["ttir"](mod, metadata)
+    ttir_mod = _run_ttir_stage(stages, mod, metadata)
     post_debug_ttir = str(ttir_mod)
 
     assert metadata["debug_enabled"] is True
@@ -251,7 +263,7 @@ def test_module_c_d_hidden_arg_instrumentation_lowers_through_ascend_ttadapter(m
     assert "ttir" in stages
     assert "ttadapter" in stages
 
-    current = stages["ttir"](current, metadata)
+    current = _run_ttir_stage(stages, current, metadata)
     ttir = str(current)
     assert metadata["debug_enabled"] is True
     assert metadata["debug_launch_hidden_arg"] is True
@@ -303,7 +315,7 @@ def test_module_a_to_b_memory_metadata_from_frontend_markers():
     stages = {}
     _add_stages(backend, stages, options, source)
     assert "ttir" in stages
-    ttir_mod = stages["ttir"](mod, metadata)
+    ttir_mod = _run_ttir_stage(stages, mod, metadata)
     post_debug_ttir = str(ttir_mod)
 
     assert fd.has_debug_collect_markers(ttir_mod) is False

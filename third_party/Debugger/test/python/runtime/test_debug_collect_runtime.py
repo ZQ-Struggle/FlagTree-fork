@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 try:
-    from triton.compiler.flagtree_debug import prepare_launch_debug_ctrl
+    from flagtree_debugger.compiler import prepare_launch_debug_ctrl
 except Exception as exc:
     pytest.skip(f"debug collect runtime tests require importable triton runtime: {exc}", allow_module_level=True)
 
@@ -31,7 +31,7 @@ def test_prepare_launch_skips_when_run_disabled():
 
 
 def test_debug_collect_runtime_uses_flagtree_backend_for_backend_name(monkeypatch):
-    from triton.runtime.debug_collect_runtime import DebugCollectRuntime
+    from flagtree_debugger.runtime import DebugCollectRuntime
 
     monkeypatch.setenv("FLAGTREE_BACKEND", "ascend")
     metadata = {
@@ -44,7 +44,7 @@ def test_debug_collect_runtime_uses_flagtree_backend_for_backend_name(monkeypatc
 
 
 def test_debug_collect_runtime_does_not_infer_backend_from_npu_target(monkeypatch):
-    from triton.runtime.debug_collect_runtime import DebugCollectRuntime
+    from flagtree_debugger.runtime import DebugCollectRuntime
 
     monkeypatch.delenv("FLAGTREE_BACKEND", raising=False)
     metadata = {
@@ -56,7 +56,7 @@ def test_debug_collect_runtime_does_not_infer_backend_from_npu_target(monkeypatc
 
 
 def test_debug_collect_runtime_prepare_export_decodes_header():
-    from triton.runtime.debug_collect_runtime import default_debug_collect_runtime
+    from flagtree_debugger.runtime import default_debug_collect_runtime
 
     md = SimpleNamespace()
     md.debug_kernel_id = 7
@@ -94,7 +94,9 @@ def test_debug_collect_runtime_prepare_export_decodes_header():
 
 
 def test_debugger_binding_decodes_and_reports_summary_record():
-    from triton._C.libtriton import debugger as dbg
+    from flagtree_debugger.native import runtime_binding
+    dbg = runtime_binding()
+    assert dbg is not None
 
     header = struct.pack("<IIIIIIII", 1, 1, 0, 0, 32, 64, 0, 0)
     summary = struct.pack("<HHIQHHId", 1, 0, 1, 42, 6, 3, 0, 3.5)
@@ -141,7 +143,9 @@ def test_debugger_binding_decodes_and_reports_summary_record():
 
 
 def test_debugger_binding_decodes_deterministic_compact_bundle_records():
-    from triton._C.libtriton import debugger as dbg
+    from flagtree_debugger.native import runtime_binding
+    dbg = runtime_binding()
+    assert dbg is not None
 
     record_size = 64
     capacity = 4
@@ -207,7 +211,9 @@ def test_debugger_binding_decodes_deterministic_compact_bundle_records():
 
 
 def test_debugger_binding_decodes_deterministic_compact_timeline_record():
-    from triton._C.libtriton import debugger as dbg
+    from flagtree_debugger.native import runtime_binding
+    dbg = runtime_binding()
+    assert dbg is not None
 
     record_size = 64
     capacity = 1
@@ -330,7 +336,7 @@ def test_ascend_spec_compiled_kernel_launch_metadata_includes_grid(monkeypatch):
 def test_ascend_spec_jit_prepares_and_finalizes_debug_hidden_arg(monkeypatch):
     import triton
     import triton.backends.ascend as ascend_backend
-    from triton.runtime import debugger
+    import triton.debugger as debugger
 
     jit_path = Path(triton.__file__).parent / "spec" / "ascend" / "runtime" / "jit.py"
     if not jit_path.exists():
@@ -355,18 +361,22 @@ def test_ascend_spec_jit_prepares_and_finalizes_debug_hidden_arg(monkeypatch):
     def finalize(error):
         calls.append(("finalize", error))
 
-    def prepare_kernel_launch(metadata, stream, launch_metadata, kernel_args):
+    def prepare_component_launch(metadata, stream, launch_metadata, kernel_args):
         calls.append((metadata.name, stream, launch_metadata, kernel_args))
-        return debugger.PreparedKernelLaunch(
+        component_launch = debugger.PreparedKernelLaunch(
             kernel_args=(0x12345678,),
             finalize=finalize,
         )
+        return SimpleNamespace(
+            kernel_args=component_launch.kernel_args,
+            component_launch=component_launch,
+        )
 
-    monkeypatch.setattr(debugger, "prepare_kernel_launch", prepare_kernel_launch)
+    monkeypatch.setattr(ascend_jit, "prepare_kernel_launch", prepare_component_launch)
     monkeypatch.setattr(
-        debugger,
+        ascend_jit,
         "finalize_prepared_launch",
-        lambda prepared, error: prepared.finalize(error),
+        lambda prepared, error: prepared.component_launch.finalize(error),
     )
     monkeypatch.setitem(
         sys.modules,
@@ -374,21 +384,25 @@ def test_ascend_spec_jit_prepares_and_finalizes_debug_hidden_arg(monkeypatch):
         SimpleNamespace(npu=SimpleNamespace(synchronize=lambda: calls.append("sync"))),
     )
 
+    run = SimpleNamespace(debug_ctrl_ptr=0)
+    run.set_component_hidden_args = lambda args: setattr(
+        run, "debug_ctrl_ptr", int(args[0]) if args else 0
+    )
     kernel = SimpleNamespace(
         metadata=SimpleNamespace(
             debug_launch_hidden_arg=True,
             debug_records_per_instance=1,
             name="ascend_debug_kernel",
         ),
-        run=SimpleNamespace(debug_ctrl_ptr=0),
+        run=run,
     )
 
-    prepared = ascend_jit._prepare_flagtree_debug_launch(
+    prepared = ascend_jit._prepare_component_launch(
         kernel, 99, {"grid": (1, 1, 1)}, ("x", "y")
     )
     assert kernel.run.debug_ctrl_ptr == 0x12345678
 
-    ascend_jit._finalize_flagtree_debug_launch(prepared, None)
+    ascend_jit._finalize_component_launch(prepared, None)
     assert calls == [
         ("ascend_debug_kernel", 99, {"grid": (1, 1, 1)}, ("x", "y")),
         "sync",
@@ -449,7 +463,7 @@ def test_ascend_options_hash_includes_instrumentation_mode():
 def test_ascend_spec_jit_exports_metadata_only_when_no_debug_records(monkeypatch):
     import triton
     import triton.backends.ascend as ascend_backend
-    from triton.runtime import debugger
+    import triton.debugger as debugger
 
     jit_path = Path(triton.__file__).parent / "spec" / "ascend" / "runtime" / "jit.py"
     if not jit_path.exists():
@@ -469,33 +483,34 @@ def test_ascend_spec_jit_exports_metadata_only_when_no_debug_records(monkeypatch
     monkeypatch.setitem(sys.modules, spec.name, ascend_jit)
     spec.loader.exec_module(ascend_jit)
 
-    def prepare_kernel_launch(*_args, **_kwargs):
-        raise AssertionError("zero-record debug kernels must not prepare hidden arg launch")
-
     calls = []
 
-    def prepare_metadata_only_kernel_launch(metadata, stream, launch_metadata, kernel_args):
+    def prepare_component_launch(metadata, stream, launch_metadata, kernel_args):
         calls.append((metadata.name, stream, launch_metadata, kernel_args))
-        return debugger.PreparedKernelLaunch(
+        component_launch = debugger.PreparedKernelLaunch(
             kernel_args=(),
             finalize=lambda error: calls.append(("finalize", error)),
         )
+        return SimpleNamespace(kernel_args=(), component_launch=component_launch)
 
-    monkeypatch.setattr(debugger, "prepare_kernel_launch", prepare_kernel_launch)
+    monkeypatch.setattr(ascend_jit, "prepare_kernel_launch", prepare_component_launch)
     monkeypatch.setattr(
-        debugger,
-        "prepare_metadata_only_kernel_launch",
-        prepare_metadata_only_kernel_launch,
-    )
-    monkeypatch.setattr(
-        debugger,
+        ascend_jit,
         "finalize_prepared_launch",
-        lambda prepared, error: prepared.finalize(error),
+        lambda prepared, error: prepared.component_launch.finalize(error),
     )
     monkeypatch.setitem(
         sys.modules,
         "torch_npu",
         SimpleNamespace(npu=SimpleNamespace(synchronize=lambda: calls.append("sync"))),
+    )
+    run = SimpleNamespace(debug_ctrl_ptr=0, debug_launch_hidden_arg=True)
+    run.disable_component_hidden_args = lambda: (
+        setattr(run, "debug_ctrl_ptr", 0),
+        setattr(run, "debug_launch_hidden_arg", False),
+    )
+    run.set_component_hidden_args = lambda args: setattr(
+        run, "debug_ctrl_ptr", int(args[0]) if args else 0
     )
     kernel = SimpleNamespace(
         metadata=SimpleNamespace(
@@ -504,10 +519,10 @@ def test_ascend_spec_jit_exports_metadata_only_when_no_debug_records(monkeypatch
             debug_records_per_instance=0,
             name="ascend_zero_record_debug_kernel",
         ),
-        run=SimpleNamespace(debug_ctrl_ptr=0, debug_launch_hidden_arg=True),
+        run=run,
     )
 
-    prepared = ascend_jit._prepare_flagtree_debug_launch(
+    prepared = ascend_jit._prepare_component_launch(
         kernel, 99, {"grid": (1, 1, 1)}, ("x", "y")
     )
     assert prepared is not None
@@ -515,7 +530,7 @@ def test_ascend_spec_jit_exports_metadata_only_when_no_debug_records(monkeypatch
     assert kernel.run.debug_ctrl_ptr == 0
     assert kernel.run.debug_launch_hidden_arg is False
 
-    ascend_jit._finalize_flagtree_debug_launch(prepared, None)
+    ascend_jit._finalize_component_launch(prepared, None)
     assert calls == [
         ("ascend_zero_record_debug_kernel", 99, {"grid": (1, 1, 1)}, ("x", "y")),
         "sync",

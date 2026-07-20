@@ -23,7 +23,8 @@ import pytest
 import triton.knobs as knobs
 import triton.profiler as proton
 from triton.compiler import LazyDict
-from triton._C.libproton import proton as libproton
+from flagtree_profiler.native import runtime_binding
+libproton = runtime_binding()
 
 proton_profile = importlib.import_module("triton.profiler.profile")
 

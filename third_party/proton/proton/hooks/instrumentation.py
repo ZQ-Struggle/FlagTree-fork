@@ -3,11 +3,9 @@ from typing import Dict, Optional, Union, Any
 
 import triton
 from triton._C.libtriton import ir as triton_ir
-from triton._C.libtriton import proton as triton_proton
 from triton._C.libtriton import amd as triton_amd
 from triton._C.libtriton import nvidia as triton_nvidia
 from triton._C.libtriton import passes as triton_passes
-from triton._C.libproton import proton as libproton
 from triton.compiler import LazyDict
 from triton.runtime.jit import JITFunction
 from triton.runtime._allocation import set_profile_allocator, NullAllocator
@@ -16,6 +14,10 @@ from triton.backends import backends
 from .hook import Hook
 from ..flags import set_instrumentation_on, set_instrumentation_off
 from .. import mode
+from ..native import compiler_binding, runtime_binding
+
+triton_proton = compiler_binding()
+libproton = runtime_binding()
 
 # TODO(fywkevin): add support for major.minor
 VERSION = 1

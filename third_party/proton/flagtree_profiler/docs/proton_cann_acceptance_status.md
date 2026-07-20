@@ -310,7 +310,9 @@ import os
 import pathlib
 import time
 import triton.profiler as proton
-from triton._C.libproton import proton as libproton
+from flagtree_profiler.native import runtime_binding
+
+libproton = runtime_binding()
 
 base = pathlib.Path(os.environ["OUT"]) / "profile_run"
 vendor_output = pathlib.Path(os.environ["OUT"]) / "vendor"

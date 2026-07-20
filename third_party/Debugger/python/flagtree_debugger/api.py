@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 import hashlib
-import importlib
 import inspect
 import json
 import os
@@ -57,8 +56,8 @@ _CONFIG_KEYS = frozenset({
     "export_raw_records",
 })
 _DISABLED_BUILD_MESSAGE = (
-    "FlagTree debugger support is not available in this build; rebuild with "
-    "-DFLAGTREE_ENABLE_DEBUGGER=ON"
+    "FlagTree debugger native support is unavailable. Install a flagtree-debugger "
+    "wheel compatible with the installed FlagTree version."
 )
 
 
@@ -102,17 +101,18 @@ def _wrap_launch_prepare_hook(hook: Callable[..., Any]) -> Callable[..., Any]:
 
 
 def _load_binding():
-    return importlib.import_module("triton._C.libtriton").debugger
+    from .native import runtime_binding
+
+    binding = runtime_binding()
+    if binding is None:
+        raise RuntimeError(_DISABLED_BUILD_MESSAGE)
+    return binding
 
 
 def is_available() -> bool:
-    try:
-        libtriton = importlib.import_module("triton._C.libtriton")
-    except (ImportError, OSError):
-        return False
-    native_debugger = getattr(libtriton, "debugger", None)
-    native_passes = getattr(getattr(libtriton, "passes", None), "flagtree_debug", None)
-    return native_debugger is not None and native_passes is not None
+    from .native import compiler_binding, runtime_binding
+
+    return runtime_binding() is not None and compiler_binding() is not None
 
 
 def _require_available() -> None:
@@ -127,7 +127,7 @@ def _normalize_output_dir(path: Any) -> Path | None:
 
 
 def configure(config: Mapping[str, Any] | None = None, **kwargs: Any) -> None:
-    """Update debugger defaults used by the next ``enable_debug(level=...)``.
+    """Update debugger defaults used by the next ``activate(level=...)``.
 
     Supported keys are ``output_dir``, ``record_capacity``, ``export_mode``,
     ``export_on_error``, and ``export_raw_records``. Keys not provided keep
@@ -161,7 +161,7 @@ def configure(config: Mapping[str, Any] | None = None, **kwargs: Any) -> None:
 
 
 def reset_config() -> None:
-    """Restore debugger defaults used by ``enable_debug(level=...)``."""
+    """Restore debugger defaults used by ``activate(level=...)``."""
     configure(
         output_dir=_DEFAULT_OUTPUT_DIR,
         record_capacity=_DEFAULT_RECORD_CAPACITY,
@@ -982,7 +982,7 @@ def prepare_kernel_launch(metadata: Any, stream: int, launch_metadata: Any = Non
     if _launch_prepare_hook is None:
         raise RuntimeError(
             "debug-enabled kernel launch requires "
-            "triton.runtime.debugger.register_launch_prepare_hook(...)"
+            "triton.debugger.register_launch_prepare_hook(...)"
         )
 
     prepared = _launch_prepare_hook(
@@ -1009,3 +1009,27 @@ def finalize_prepared_launch(prepared: Optional[PreparedKernelLaunch],
     if prepared is None or prepared.finalize is None:
         return
     prepared.finalize(error)
+
+
+__all__ = (
+    "DebuggerConfig",
+    "PreparedKernelLaunch",
+    "activate",
+    "clear_exported_runs",
+    "clear_launch_prepare_hook",
+    "configure",
+    "current_compile_config",
+    "deactivate",
+    "finalize_prepared_launch",
+    "get_config",
+    "get_output_dir",
+    "is_active",
+    "is_available",
+    "peek_exported_runs",
+    "prepare_kernel_launch",
+    "prepare_metadata_only_kernel_launch",
+    "register_launch_prepare_hook",
+    "reset_config",
+    "set_output_dir",
+    "take_exported_runs",
+)

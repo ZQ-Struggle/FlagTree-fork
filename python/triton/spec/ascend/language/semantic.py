@@ -1891,24 +1891,47 @@ class TritonSemantic(Generic[TensorTy]):
     def debug_barrier(self) -> TensorTy:
         return self.tensor(self.builder.create_barrier(), tl.void)
 
+    def _load_debugger_dialect(self) -> None:
+        from triton._components import load_component
+
+        component = load_component("debugger")
+        load_dialects = getattr(component, "load_dialects", None)
+        get_context = getattr(self.builder, "get_context", None)
+        if callable(load_dialects) and callable(get_context):
+            load_dialects(get_context())
+
     def debug_collect_start(self, level: int, addr_level: Optional[int]) -> TensorTy:
-        if not hasattr(self.builder, "create_debug_collect_begin"):
-            raise RuntimeError(
-                "FlagTree debugger support is not available in this build; "
-                "rebuild with -DFLAGTREE_ENABLE_DEBUGGER=ON"
+        if hasattr(self.builder, "create_void_op"):
+            self._load_debugger_dialect()
+            attributes = {"level": int(level)}
+            if addr_level is not None:
+                attributes["addr_level"] = int(addr_level)
+            handle = self.builder.create_void_op(
+                "flagtree_debug.collect_begin", attributes
             )
-        handle = self.builder.create_debug_collect_begin(
-            level, -1 if addr_level is None else int(addr_level)
-        )
+        elif hasattr(self.builder, "create_debug_collect_begin"):
+            handle = self.builder.create_debug_collect_begin(
+                level, -1 if addr_level is None else int(addr_level)
+            )
+        else:
+            raise RuntimeError(
+                "FlagTree debugger is not installed; install a compatible "
+                "flagtree-debugger wheel before compiling this kernel"
+            )
         return self.tensor(handle, tl.void)
 
     def debug_collect_end(self) -> TensorTy:
-        if not hasattr(self.builder, "create_debug_collect_end"):
+        if hasattr(self.builder, "create_void_op"):
+            self._load_debugger_dialect()
+            handle = self.builder.create_void_op("flagtree_debug.collect_end", {})
+        elif hasattr(self.builder, "create_debug_collect_end"):
+            handle = self.builder.create_debug_collect_end()
+        else:
             raise RuntimeError(
-                "FlagTree debugger support is not available in this build; "
-                "rebuild with -DFLAGTREE_ENABLE_DEBUGGER=ON"
+                "FlagTree debugger is not installed; install a compatible "
+                "flagtree-debugger wheel before compiling this kernel"
             )
-        return self.tensor(self.builder.create_debug_collect_end(), tl.void)
+        return self.tensor(handle, tl.void)
 
     def device_print(self, prefix: str, args: List[TensorTy], hex: bool) -> TensorTy:
         # It makes sense visually for prefix to end in ": "; make it so.  Also,

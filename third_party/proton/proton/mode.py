@@ -1,7 +1,10 @@
 from dataclasses import dataclass, field
-from triton._C.libtriton import proton as triton_proton
 from typing import List
 from enum import Enum
+
+from .native import compiler_binding
+
+triton_proton = compiler_binding()
 
 metric_types = {"cycle": triton_proton.METRIC_TYPE.CYCLE}
 

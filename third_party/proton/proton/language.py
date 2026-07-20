@@ -1,10 +1,12 @@
 from triton.language import core as tl
 from triton.language.core import builtin
-from triton._C.libtriton import proton as triton_proton
 from triton.language.semantic import TritonSemantic
 from triton.experimental.gluon.language._semantic import GluonSemantic
 
 from .flags import get_instrumentation_on
+from .native import compiler_binding
+
+triton_proton = compiler_binding()
 
 _ALL_SEMANTICS = {
     "triton": TritonSemantic,

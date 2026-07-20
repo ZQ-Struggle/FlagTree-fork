@@ -6,19 +6,43 @@ Proton is a lightweight profiler for Triton, designed to be used for code writte
 
 ## Installation
 
-The following command installs the latest version of Proton.
+Proton is distributed as the independent `flagtree-profiler` wheel. Install a
+matching FlagTree 0.6 core (Triton API 3.5) first:
 
 ```bash
-git clone https://github.com/triton-lang/triton
-cd triton/python
-pip install .
+python -m pip install flagtree
+python -m pip install flagtree-profiler
 ```
 
-To **not build** Proton, you can set the `TRITON_BUILD_PROTON` environment variable to `OFF`:
+For a source checkout, first build a core without embedded Proton, then build
+the component against the same LLVM/MLIR and `libtriton` ABI:
 
 ```bash
-TRITON_BUILD_PROTON=OFF pip install .
+export FLAGTREE_SOURCE_DIR="$PWD"
+export LLVM_SYSPATH=/path/to/llvm
+export PATH="$LLVM_SYSPATH/bin:$PATH"
+export FLAGTREE_BUILD_DIR=/tmp/flagtree-core-build
+export JSON_INCLUDE_DIR=/path/to/nlohmann-json/include
+
+FLAGTREE_BACKEND=ascend TRITON_BUILD_PROTON=OFF \
+TRITON_BUILD_DIR="$FLAGTREE_BUILD_DIR" MAX_JOBS=16 \
+python -m pip install -e . --no-build-isolation
+
+FLAGTREE_COMPONENT_BUILD_DIR=/tmp/flagtree-profiler-build \
+TRITON_CUPTI_INCLUDE_PATH=/path/to/cupti/include \
+TRITON_ROCTRACER_INCLUDE_PATH=/path/to/roctracer/include \
+python -m pip install ./third_party/proton --no-build-isolation
 ```
+
+The CUPTI and ROC-tracer variables may be omitted when their headers are
+already present in the matching FlagTree source tree.
+
+The FlagTree core wheel owns only the `triton.profiler` facade and component
+hooks. Without this wheel, ordinary `import triton` still works and
+`import triton.profiler` reports the required install command. The profiler
+wheel owns the Python implementation, `libproton` runtime, and CLI entry points.
+The supported public import remains `triton.profiler`; `flagtree_profiler` is
+the wheel's private implementation namespace.
 
 ## Usage
 

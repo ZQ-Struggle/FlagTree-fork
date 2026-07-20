@@ -7,20 +7,41 @@
 本文面向 debugger 使用者和维护者，说明功能目的、用户接口、输出格式、可采集
 指标、运行示例以及简要设计架构。
 
-## 编译开关
+## 安装
 
-Debugger 由 CMake option `FLAGTREE_ENABLE_DEBUGGER` 控制，默认开启。容器内可用
-以下命令分别构建启用或禁用版本：
+Debugger 是独立 wheel，不再由 FlagTree 主 wheel 的 CMake 开关控制。先安装匹配的
+FlagTree 0.6 core（Triton API 3.5），再安装 Debugger：
 
 ```bash
-FLAGTREE_ENABLE_DEBUGGER=ON bash build.sh --rebuild
-FLAGTREE_ENABLE_DEBUGGER=OFF bash build.sh --rebuild
+python -m pip install flagtree
+python -m pip install flagtree-debugger
 ```
 
-禁用时不会生成或编译 Debugger dialect、passes、runtime、native binding 和测试
-target；普通 `import triton` 与非 debugger kernel 保持可用。禁用版本调用
-`triton.enable_debug()` 或 `tl.debug_collect_start/end` 会明确提示使用
-`-DFLAGTREE_ENABLE_DEBUGGER=ON` 重新构建。
+在本仓库开发时可从源码构建。原生扩展需要与 core 相同的 LLVM/MLIR 和
+`libtriton` ABI；`LLVM_SYSPATH` 指向 core 使用的 LLVM 安装，
+`FLAGTREE_BUILD_DIR` 指向 core 的 CMake build 目录：
+
+```bash
+export FLAGTREE_SOURCE_DIR="$PWD"
+export LLVM_SYSPATH=/path/to/llvm
+export PATH="$LLVM_SYSPATH/bin:$PATH"
+export FLAGTREE_BUILD_DIR=/tmp/flagtree-core-build
+
+FLAGTREE_BACKEND=ascend TRITON_BUILD_PROTON=OFF \
+TRITON_BUILD_DIR="$FLAGTREE_BUILD_DIR" MAX_JOBS=16 \
+python -m pip install -e . --no-build-isolation
+
+FLAGTREE_COMPONENT_BUILD_DIR=/tmp/flagtree-debugger-build \
+python -m pip install ./third_party/Debugger --no-build-isolation
+```
+
+未安装该 wheel 时，普通 `import triton` 和非 debugger kernel 保持可用；
+`import triton.debugger` 会提示安装 `flagtree-debugger`。core 只保留组件注册、
+dialect 加载、编译阶段和 launch 生命周期接口，Debugger dialect、passes、runtime
+及 native binding 均由本 wheel 提供。
+
+公开 API 固定为 `triton.debugger`。`flagtree_debugger` 是 wheel 内部实现包，供
+组件注册和维护测试使用，不作为用户 API 兼容边界。
 
 可运行示例位于 `third_party/Debugger/examples/`，精简的 FlagGems 回归样例位于
 `third_party/Debugger/samples/`。生成的 kernel、报告、cache 和复制的第三方源码
@@ -36,19 +57,19 @@ FlagTree debugger 用于在 Triton kernel 内采集指定代码区域的运行�
 
 ### Python 配置接口
 
-用户在 Python 侧通过 `triton.runtime.debugger` 配置输出目录、record 容量和导出
-选项，并通过 `triton.enable_debug(...)` 开启 debugger 编译和运行流程。
+用户通过 `triton.debugger` 配置输出目录、record 容量和导出选项，并通过
+`debugger.activate(...)` 开启 debugger 编译和运行流程。
 
 ```python
 import triton
-from triton.runtime import debugger
+import triton.debugger as debugger
 
 debugger.configure(
     output_dir="/tmp/flagtree_debugger_example",
     record_capacity=4096,
     export_raw_records=False,
 )
-triton.enable_debug(level=1, addr_level=1)
+debugger.activate(level=1, addr_level=1)
 ```
 
 常用接口：
@@ -56,17 +77,18 @@ triton.enable_debug(level=1, addr_level=1)
 - `debugger.configure(...)`：配置输出目录、record 容量和导出选项。
 - `debugger.get_config()`：读取当前 debugger 配置。
 - `debugger.reset_config()`：恢复默认配置。
-- `triton.enable_debug(level=..., addr_level=...)`：开启后续 kernel 的 debugger
+- `debugger.activate(level=..., addr_level=...)`：开启后续 kernel 的 debugger
   pipeline。
-- `triton.disable_debug()`：关闭 debugger pipeline。
+- `debugger.deactivate()`：关闭 debugger pipeline。
 
 ### Triton JIT 采集接口
 
-Python 侧 `triton.enable_debug(...)` 仅开启 debugger pipeline。实际采集范围由
+Python 侧 `debugger.activate(...)` 仅开启 debugger pipeline。实际采集范围由
 Triton JIT 函数内的 `tl.debug_collect_start(...)` 和 `tl.debug_collect_end()` 界定。
 
 ```python
 import triton
+import triton.debugger as debugger
 import triton.language as tl
 
 
@@ -234,7 +256,7 @@ import torch
 import torch_npu
 import triton
 import triton.language as tl
-from triton.runtime import debugger
+import triton.debugger as debugger
 
 
 debugger.configure(
@@ -242,7 +264,7 @@ debugger.configure(
     record_capacity=4096,
     export_raw_records=False,
 )
-triton.enable_debug(level=1, addr_level=1)
+debugger.activate(level=1, addr_level=1)
 
 
 @triton.jit
@@ -490,6 +512,17 @@ op_id=8 scope_id=1
 `tt.splat` / `tt.addptr`，不会重复写无意义的动态 summary。
 
 ## 设计架构
+
+### Wheel 边界
+
+- FlagTree core：`triton._components`、编译阶段回调、cache key、通用 hidden-arg
+  launch 生命周期，以及 `triton.debugger` 门面。
+- `flagtree-debugger` wheel：私有实现包 `flagtree_debugger`、Debugger dialect 和
+  passes、运行期传输/解码、报告生成及 `_native` 扩展。
+- wheel 通过 `flagtree.components` entry point 注册 `debugger`；组件 API 或
+  Triton 3.5 API 系列不匹配时会在加载阶段报错。
+- instrumented kernel metadata 记录 `required_components=[debugger]` 和组件 API
+  版本，cache 命中或跨环境运行时仍会检查依赖。
 
 整体设计包含以下模块：
 

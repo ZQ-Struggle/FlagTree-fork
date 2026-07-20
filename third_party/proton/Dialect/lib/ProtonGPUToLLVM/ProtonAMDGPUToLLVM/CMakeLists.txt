@@ -1,4 +1,8 @@
-include_directories(${PROJECT_SOURCE_DIR}/third_party/amd/include)
+if(FLAGTREE_SOURCE_DIR)
+  include_directories(${FLAGTREE_SOURCE_DIR}/third_party/amd/include)
+else()
+  include_directories(${PROJECT_SOURCE_DIR}/third_party/amd/include)
+endif()
 
 add_triton_library(ProtonAMDGPUToLLVM
     TargetInfo.cpp

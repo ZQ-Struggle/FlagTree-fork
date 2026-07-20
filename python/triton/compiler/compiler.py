@@ -6,12 +6,12 @@ from ..backends import backends
 from ..backends.compiler import Language
 from ..backends.compiler import BaseBackend, GPUTarget
 from .. import __version__, knobs
+from .. import _components
 from ..runtime.autotuner import OutOfResources
 from ..runtime.cache import get_cache_manager, get_dump_manager, get_override_manager, get_cache_key
 from ..runtime.driver import driver
 from ..tools.disasm import get_sass
 from pathlib import Path
-import importlib
 import re
 import functools
 import os
@@ -95,6 +95,7 @@ class IRSource:
         self.src = path.read_text()
         ir.load_dialects(context)
         backend.load_dialects(context)
+        _components.load_dialects(context)
 
         # We don't have a easy-to-use PTX parser that we can use, so keep that regex for now.
         # TODO - replace with a proper parser
@@ -301,6 +302,7 @@ def compile(src, target=None, options=None, _env_vars=None):
         context = ir.context()
         ir.load_dialects(context)
         backend.load_dialects(context)
+        _components.load_dialects(context)
 
     codegen_fns = backend.get_codegen_implementation(options)
     module_map = backend.get_module_map()
@@ -326,6 +328,10 @@ def compile(src, target=None, options=None, _env_vars=None):
         timer.finished_ir_initialization()
     for ext, compile_ir in list(stages.items())[first_stage:]:
         next_module = compile_ir(module, metadata)
+        if ext == "ttir":
+            _components.run_compiler_hook(
+                "ttir.post_optimization", next_module, metadata
+            )
         ir_filename = f"{file_name}.{ext}"
         if fn_override_manager is None:
             # Users can override kernels at scale by setting `ir_override` in autotune config
@@ -351,21 +357,7 @@ def compile(src, target=None, options=None, _env_vars=None):
         module = next_module
         if compilation_listener:
             timer.stage_finished(ext)
-    if str(metadata.get("instrumentation_mode", "")).startswith("debugger"):
-        try:
-            debugger_config = importlib.import_module(
-                "triton.runtime.debugger"
-            ).current_compile_config()
-        except Exception:
-            debugger_config = {}
-
-        metadata.update(debugger_config)
-        metadata.setdefault("debug_enabled", True)
-        metadata.setdefault("debug_protocol_version", 2)
-        metadata.setdefault("debug_kernel_id", int(hash[:8], 16) or 1)
-        metadata.setdefault("debug_backend_name", metadata.get("backend_name", ""))
-        metadata.setdefault("debug_target_name", str(getattr(target, "arch", "")))
-        metadata.setdefault("debug_kernel_name", metadata.get("name", ""))
+    _components.update_compile_metadata(metadata)
     # write-back metadata
     metadata_group[metadata_filename] = fn_cache_manager.put(json.dumps(metadata, default=vars), metadata_filename,
                                                              binary=False)
@@ -508,14 +500,8 @@ class CompiledKernel:
         return self._run
 
     def launch_metadata(self, grid, stream, *args):
-        debugger_active = False
-        try:
-            debugger_active = importlib.import_module("triton.runtime.debugger").is_active()
-        except Exception:
-            pass
         if (knobs.runtime.launch_enter_hook is None and
-                not getattr(self.metadata, "debug_enabled", False) and
-                not debugger_active):
+                not _components.needs_launch_metadata(self.metadata)):
             return None
         self._init_handles()
         grid_size = len(grid)
@@ -543,54 +529,35 @@ class CompiledKernel:
             if stream is None:
                 device = driver.active.get_current_device()
                 stream = driver.active.get_current_stream(device)
-            debug_ctx = None
-            launcher_manages_debug = bool(
-                getattr(self._run, "manages_debug_launch", False)
-            )
-            records_per_instance = int(
-                getattr(self.metadata, "debug_records_per_instance", 0)
-            )
-            has_hidden_arg = (
-                bool(getattr(self.metadata, "debug_launch_hidden_arg", False))
-                and records_per_instance > 0
-            )
-            if (getattr(self.metadata, "debug_launch_hidden_arg", False)
-                    and records_per_instance <= 0):
-                self._run.debug_launch_hidden_arg = False
-                self._run.debug_ctrl_ptr = 0
-            if (getattr(self.metadata, "debug_enabled", False)
-                    and has_hidden_arg and not launcher_manages_debug):
-                from triton.runtime.debug_collect_runtime import default_debug_collect_runtime
-
-                grid_size = len(grid)
-                runtime_metadata = {
-                    "grid": (
-                        int(grid[0]),
-                        int(grid[1]) if grid_size > 1 else 1,
-                        int(grid[2]) if grid_size > 2 else 1,
-                    ),
-                    "records_per_instance": records_per_instance,
-                }
-                debug_ctx = default_debug_collect_runtime.prepare(
-                    self.metadata, stream, runtime_metadata
-                )
-                self._debug_ctrl_ptr = default_debug_collect_runtime.hidden_arg(debug_ctx)
-            if has_hidden_arg and not launcher_manages_debug:
-                from triton.compiler.flagtree_debug import prepare_launch_debug_ctrl
-
-                prepare_launch_debug_ctrl(self, stream)
             launch_metadata = self.launch_metadata(grid, stream, *args)
+            prepared_launch = None
+            launcher_manages_components = bool(
+                getattr(self._run, "manages_component_launch", False)
+            )
+            if not launcher_manages_components:
+                try:
+                    prepared_launch = _components.prepare_kernel_launch(
+                        self.metadata, stream, launch_metadata, args
+                    )
+                    hidden_args = prepared_launch.kernel_args if prepared_launch else ()
+                    setter = getattr(self._run, "set_component_hidden_args", None)
+                    if hidden_args and not callable(setter):
+                        raise RuntimeError(
+                            "kernel launcher does not support component hidden arguments"
+                        )
+                    if callable(setter):
+                        setter(hidden_args)
+                except BaseException as exc:
+                    _components.finalize_prepared_launch(prepared_launch, exc)
+                    raise
+            launch_error = None
             try:
                 self.run(grid[0], grid[1], grid[2], stream, self.function, self.packed_metadata, launch_metadata,
                          knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *args)
-                if debug_ctx is not None:
-                    from triton.runtime.debug_collect_runtime import default_debug_collect_runtime
-
-                    default_debug_collect_runtime.export(debug_ctx, stream)
+            except BaseException as exc:
+                launch_error = exc
+                raise
             finally:
-                if debug_ctx is not None:
-                    from triton.runtime.debug_collect_runtime import default_debug_collect_runtime
-
-                    default_debug_collect_runtime.release(debug_ctx)
+                _components.finalize_prepared_launch(prepared_launch, launch_error)
 
         return runner

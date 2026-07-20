@@ -18,13 +18,19 @@ _spec.loader.exec_module(_mad)
 __doc__ = _mad.extend_doc(__doc__)
 
 import triton  # noqa: F401
+from flagtree_debugger.native import compiler_binding
 from triton._C.libtriton import ir
-from triton._C.libtriton.passes import flagtree_debug as fd
+
+
+fd = compiler_binding()
+if fd is None:
+    pytest.skip("flagtree-debugger native binding is unavailable", allow_module_level=True)
 
 
 def _parse_mlir(tmp_path: Path, text: str):
     ctx = ir.context()
     ir.load_dialects(ctx)
+    fd.load_dialects(ctx)
     path = tmp_path / "module_a_ctt1.mlir"
     path.write_text(text.strip() + "\n", encoding="utf-8")
     mod = ir.parse_mlir_module(str(path), ctx)

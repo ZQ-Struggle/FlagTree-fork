@@ -2,6 +2,38 @@
 
 FlagTree Profiler 是 FlagTree 在 Proton 上扩展出的 Triton profiling 工具。它复用 Proton 的 session、scope、Triton hook、数据导出能力，并增加 IR instrumentation 路径，用来在不依赖特定厂商 profiler 的情况下采集 Triton kernel 内部 timeline。昇腾 CANN 的 legacy `aclprof/msprof` 路径仍然保留，可通过环境变量显式打开。
 
+Profiler 作为独立 wheel 安装，FlagTree 主 wheel 只提供 `triton.profiler` 门面和
+通用组件钩子：
+
+```bash
+python -m pip install flagtree
+python -m pip install flagtree-profiler
+```
+
+未安装时 `import triton` 不受影响；`import triton.profiler` 会提示安装
+`flagtree-profiler`。CANN 默认 IR instrumentation 还依赖匹配版本的
+`flagtree-debugger` wheel。
+
+从仓库源码构建时，先用 `TRITON_BUILD_PROTON=OFF` 构建 core，再使用相同的
+LLVM/MLIR 和 `libtriton` ABI 构建 profiler wheel：
+
+```bash
+export FLAGTREE_SOURCE_DIR="$PWD"
+export LLVM_SYSPATH=/path/to/llvm
+export PATH="$LLVM_SYSPATH/bin:$PATH"
+export FLAGTREE_BUILD_DIR=/tmp/flagtree-core-build
+export JSON_INCLUDE_DIR=/path/to/nlohmann-json/include
+
+FLAGTREE_BACKEND=ascend TRITON_BUILD_PROTON=OFF \
+TRITON_BUILD_DIR="$FLAGTREE_BUILD_DIR" MAX_JOBS=16 \
+python -m pip install -e . --no-build-isolation
+
+FLAGTREE_COMPONENT_BUILD_DIR=/tmp/flagtree-profiler-build \
+python -m pip install ./third_party/proton --no-build-isolation
+```
+
+公开 API 为 `triton.profiler`；`flagtree_profiler` 仅是 wheel 的私有实现命名空间。
+
 当前用户接口仍然是 Proton API：
 
 ```python
@@ -279,11 +311,11 @@ python3 third_party/proton/flagtree_profiler/scripts/cann_profile_test_suite.py 
 
 FlagTree Profiler 的实现分为几层，目标是在不改变 Proton 使用方式的前提下，优先用 IR instrumentation 提供跨后端基础 profiler；如果某个后端有成熟厂商 profiler，再把厂商数据作为增强指标接进 `proton.start()` / `proton.finalize()` 生命周期。
 
-1. **用户入口层**：用户仍调用 `triton.profiler`。`proton.start(..., backend="cann", hook="triton", mode="...")` 进入 Proton 原有 Python API。昇腾上 `hook="triton"` 默认打开 FlagTree debugger 自动插桩，并把 CANN legacy `aclprof/msprof` mode 改成关闭；设置 `PROTON_CANN_TRITON_HOOK_LEGACY=1` 后恢复旧 CANN 路径。相关文件：`third_party/proton/proton/proton.py`、`third_party/proton/proton/profile.py`。
+1. **用户入口层**：用户仍调用 `triton.profiler`。core 门面通过 `flagtree.components` entry point 加载 `flagtree_profiler` 私有实现。`proton.start(..., backend="cann", hook="triton", mode="...")` 进入 Proton 原有 Python API。昇腾上 `hook="triton"` 默认打开 FlagTree debugger 自动插桩，并把 CANN legacy `aclprof/msprof` mode 改成关闭；设置 `PROTON_CANN_TRITON_HOOK_LEGACY=1` 后恢复旧 CANN 路径。相关文件：`python/triton/profiler/__init__.py`、`third_party/proton/proton/proton.py`、`third_party/proton/proton/profile.py`。
 
 2. **Triton hook 层**：`hook="triton"` 在 Triton kernel launch 前后自动进入/退出 Proton scope，使用户不需要手动包每个 kernel。相关文件：`third_party/proton/proton/hook.py`。
 
-3. **IR 插桩层**：`triton.compiler.flagtree_debug` 在无用户 marker 时自动插入默认 collect region，运行现有 FlagTree debugger metadata/instrumentation pass，并通过 Ascend launch hidden arg 把 debug control buffer 传给 kernel。kernel 执行结束后 runtime 导出 ring buffer。关键文件：`python/triton/compiler/flagtree_debug.py`、`third_party/Debugger/lib/Metadata/Passes.cpp`、`third_party/Debugger/lib/Instrumentation/Passes.cpp`、`python/triton/runtime/debugger.py`、`python/triton/runtime/debug_collect_runtime.py`、`third_party/ascend/backend/spec/triton/runtime/jit.py`。
+3. **IR 插桩层**：`flagtree_debugger.compiler` 在无用户 marker 时自动插入默认 collect region，并通过 core 的通用 compiler hook 运行 Debugger metadata/instrumentation pass。core 的通用 launch 生命周期把 hidden arg 交给 Ascend launcher，kernel 结束后由 Debugger runtime 导出 ring buffer。关键文件：`python/triton/_components.py`、`third_party/Debugger/python/flagtree_debugger/compiler.py`、`third_party/Debugger/lib/Metadata/Passes.cpp`、`third_party/Debugger/lib/Instrumentation/Passes.cpp`、`third_party/Debugger/python/flagtree_debugger/runtime.py`、`python/triton/spec/ascend/runtime/jit.py`。
 
 4. **Artifact 合成层**：Python `finalize()` 在 Proton C++ session 写完基础文件后，把 IR runtime records 合并进原有 `profile.timeline.json` 和 `profile.hatchet`，同时在 `profile.meta.json`、`profile.vendor.json` 中标注 IR 数据源、默认/legacy 模式、可用指标和不可用的 CANN-only 指标。关键文件：`third_party/proton/proton/profile.py`。
 
@@ -293,7 +325,9 @@ FlagTree Profiler 的实现分为几层，目标是在不改变 Proton 使用方
 
 7. **CANN legacy 后端层**：`CannProfiler` 负责调用/控制 CANN profiling，处理 MSTX range、自动 `msprof --export=on`、CSV 导入，以及把 AICore、bandwidth、runtime/API 等数据关联到 Proton scope。相关文件：`flagtree_profiler/csrc/lib/Profiler/Vendor/CannProfiler.cpp`、`CannAdapter.cpp`、`Driver/Ascend/AscendApi.cpp`。
 
-能够独立归属 FlagTree Profiler 的代码集中放在本目录；少量 Proton 公共 API、生命周期和数据模型接入点仍保留在 Proton 原目录，详见 [目录结构](docs/directory_structure.md)。
+Profiler wheel 的 Python、native runtime、CLI、生命周期和 vendor adapter 均位于
+`third_party/proton`；FlagTree 主体只保留组件门面和稳定接入点。详见
+[目录结构](docs/directory_structure.md)。
 
 ## 代码位置
 
@@ -321,13 +355,15 @@ Proton 公共接入点仍在 `third_party/proton/` 原目录：
 - `csrc/lib/Data/TraceData.cpp`：输出 `profile.timeline.json`。
 - `CMakeLists.txt`：把 `flagtree_profiler/csrc` 编进 Proton。
 
-IR 插桩相关代码在 FlagTree 主体和 Ascend backend 中：
+IR 插桩实现属于独立 Debugger wheel；FlagTree 主体和 Ascend backend 只保留通用
+接入点：
 
-- `python/triton/compiler/flagtree_debug.py`：决定是否自动插入 collect marker，并调度 debugger pass。
+- `python/triton/_components.py`：组件发现、cache key、compiler hook 和 launch 生命周期。
+- `third_party/Debugger/python/flagtree_debugger/compiler.py`：决定是否自动插入 collect marker，并调度 debugger pass。
 - `third_party/Debugger/include/Debugger/Metadata/Passes.h`、`third_party/Debugger/lib/Metadata/Passes.cpp`：默认 collect marker 插入和 metadata pass。
 - `third_party/Debugger/lib/Instrumentation/Passes.cpp`：把 debugger record op lowering 成设备侧 ring buffer 写入。
-- `python/triton/runtime/debugger.py`、`python/triton/runtime/debug_collect_runtime.py`：准备 hidden arg、导出和 decode runtime records。
-- `third_party/ascend/backend/spec/triton/compiler/compiler.py`、`third_party/ascend/backend/spec/triton/runtime/jit.py`：Ascend 编译/JIT cache key 和 hidden arg launch 接入。
+- `third_party/Debugger/python/flagtree_debugger/api.py`、`runtime.py`：准备 hidden arg、导出和 decode runtime records。
+- `third_party/ascend/backend/compiler.py`、`python/triton/spec/ascend/runtime/jit.py`：通过通用 hook 接入 Ascend 编译和 hidden arg launch。
 
 ## 新增后端
 

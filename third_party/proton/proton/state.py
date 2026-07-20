@@ -1,4 +1,6 @@
-from triton._C.libproton import proton as libproton
+from .native import runtime_binding
+
+libproton = runtime_binding()
 from .flags import get_profiling_on
 from functools import wraps
 

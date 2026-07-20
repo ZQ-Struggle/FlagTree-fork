@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 import triton
 
-from triton.runtime import debugger
+from flagtree_debugger import api as debugger
 
 
 ROOT = Path(__file__).resolve().parents[5]
@@ -243,7 +243,7 @@ def test_configure_supplies_defaults_for_enable_debug(tmp_path, monkeypatch):
         export_on_error=True,
         export_raw_records=True,
     )
-    triton.enable_debug(level=2, addr_level=1)
+    debugger.activate(level=2, addr_level=1)
     try:
         assert debugger.current_compile_config() == {
             "debug_enabled": True,
@@ -271,7 +271,7 @@ def test_configure_supplies_defaults_for_enable_debug(tmp_path, monkeypatch):
         assert Path(run["report_path"]).parent == tmp_path
         assert Path(run["raw_records_path"]).name.endswith("_raw_records.txt")
     finally:
-        triton.disable_debug()
+        debugger.deactivate()
 
     assert debugger.get_config()["record_capacity"] == 4096
     assert debugger.get_config()["export_raw_records"] is True
@@ -293,9 +293,9 @@ def test_enable_debug_rejects_invalid_addr_level():
     _reset_debugger_state()
     try:
         with pytest.raises(ValueError, match="addr_level"):
-            triton.enable_debug(addr_level=3)
+            debugger.activate(addr_level=3)
         with pytest.raises(ValueError, match="addr_level"):
-            triton.enable_debug(addr_level=-1)
+            debugger.activate(addr_level=-1)
     finally:
         _reset_debugger_state()
 

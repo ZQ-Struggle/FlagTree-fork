@@ -28,9 +28,6 @@
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/LocationSnapshot.h"
 
-#if FLAGTREE_ENABLE_DEBUGGER
-#include "Debugger/IR/Dialect.h"
-#endif
 #include "tle/dialect/include/IR/Dialect.h"
 #include "triton/Conversion/TritonGPUToLLVM/Utility.h"
 #include "triton/Dialect/Gluon/IR/Dialect.h"
@@ -347,7 +344,7 @@ void init_triton_ir(py::module &&m) {
       .value("FP16", ScaleDotElemType::FP16)
       .export_values();
 
-  py::class_<MLIRContext>(m, "context", py::module_local())
+  py::class_<MLIRContext>(m, "context")
       .def(py::init<>())
       .def(
           "__enter__", [](MLIRContext &self) -> MLIRContext & { return self; },
@@ -378,9 +375,6 @@ void init_triton_ir(py::module &&m) {
         arith::ArithDialect, scf::SCFDialect, ::mlir::gpu::GPUDialect,
         cf::ControlFlowDialect, LLVM::LLVMDialect, mlir::ub::UBDialect,
         mlir::triton::gluon::GluonDialect, mlir::triton::tle::TleDialect
-#if FLAGTREE_ENABLE_DEBUGGER
-        , mlir::flagtree::debugger::FlagTreeDebugDialect
-#endif
         >();
     mlir::LLVM::registerInlinerInterface(registry);
     registerBuiltinDialectTranslation(registry);
@@ -544,7 +538,7 @@ void init_triton_ir(py::module &&m) {
   py::class_<ArrayAttr, Attribute>(m, "array_attr", py::module_local());
 
   // Ops
-  py::class_<OpState>(m, "OpState", py::module_local())
+  py::class_<OpState>(m, "OpState")
       .def("set_attr",
            [](OpState &self, std::string &name, Attribute &attr) -> void {
              self->setAttr(name, attr);
@@ -652,7 +646,7 @@ void init_triton_ir(py::module &&m) {
 
   // dynamic_attr is used to transfer ownership of the MLIR context to the
   // module
-  py::class_<ModuleOp, OpState>(m, "module", py::module_local(),
+  py::class_<ModuleOp, OpState>(m, "module",
                                 py::dynamic_attr())
       .def("dump", &ModuleOp::dump)
       .def("str",
@@ -798,14 +792,13 @@ void init_triton_ir(py::module &&m) {
       .def_property_readonly("type", &FuncOp::getFunctionType)
       .def("reset_type", &FuncOp::setType);
 
-  py::class_<mlir::OpBuilder>(m, "op_builder", py::module_local(),
-                              py::dynamic_attr())
+  py::class_<mlir::OpBuilder>(m, "op_builder", py::dynamic_attr())
       .def(py::init<MLIRContext *>());
 
   py::class_<OpBuilder::InsertPoint>(m, "InsertPoint", py::module_local());
 
   static py::class_<TritonOpBuilder> builderClass(
-      m, "builder", py::module_local(), py::dynamic_attr());
+      m, "builder", py::dynamic_attr());
   ir::builderClassPtr = &builderClass;
   builderClass
       .def(py::init<MLIRContext *, const std::string &>(), py::arg("context"),
@@ -843,6 +836,10 @@ void init_triton_ir(py::module &&m) {
            [](TritonOpBuilder &self) {
              return self.getBuilder().saveInsertionPoint();
            })
+      .def(
+          "get_context",
+          [](TritonOpBuilder &self) { return self.getBuilder().getContext(); },
+          ret::reference)
       .def("restore_insertion_point",
            [](TritonOpBuilder &self, OpBuilder::InsertPoint pt) {
              self.restoreInsertionPoint(pt);
@@ -1866,28 +1863,31 @@ void init_triton_ir(py::module &&m) {
       // Force GPU barrier
       .def("create_barrier",
            [](TritonOpBuilder &self) { self.create<mlir::gpu::BarrierOp>(); })
-#if FLAGTREE_ENABLE_DEBUGGER
-      .def("create_debug_collect_begin",
-           [](TritonOpBuilder &self, int32_t level) {
-             auto attr = self.getBuilder().getI32IntegerAttr(level);
-             mlir::IntegerAttr addrAttr;
-             self.create<mlir::flagtree::debugger::CollectBeginOp>(
-                 attr, addrAttr, /*scope_id=*/nullptr);
+      .def("create_void_op",
+           [](TritonOpBuilder &self, const std::string &name,
+              const py::dict &attributes) {
+             OperationState state(self.getLastLoc(), name);
+             for (auto item : attributes) {
+               std::string key = py::cast<std::string>(item.first);
+               py::handle value = item.second;
+               Attribute attr;
+               if (py::isinstance<py::bool_>(value)) {
+                 attr = self.getBuilder().getBoolAttr(py::cast<bool>(value));
+               } else if (py::isinstance<py::int_>(value)) {
+                 attr = self.getBuilder().getI32IntegerAttr(
+                     py::cast<int32_t>(value));
+               } else if (py::isinstance<py::str>(value)) {
+                 attr = self.getBuilder().getStringAttr(
+                     py::cast<std::string>(value));
+               } else if (value.is_none()) {
+                 continue;
+               } else {
+                 throw py::type_error("unsupported dynamic operation attribute");
+               }
+               state.addAttribute(key, attr);
+             }
+             self.getBuilder().create(state);
            })
-      .def("create_debug_collect_begin",
-           [](TritonOpBuilder &self, int32_t level, int32_t addrLevel) {
-             auto attr = self.getBuilder().getI32IntegerAttr(level);
-             mlir::IntegerAttr addrAttr;
-             if (addrLevel >= 0)
-               addrAttr = self.getBuilder().getI32IntegerAttr(addrLevel);
-             self.create<mlir::flagtree::debugger::CollectBeginOp>(
-                 attr, addrAttr, /*scope_id=*/nullptr);
-           })
-      .def("create_debug_collect_end", [](TritonOpBuilder &self) {
-        self.create<mlir::flagtree::debugger::CollectEndOp>(
-            /*scope_id=*/nullptr);
-      })
-#endif
       // Make a block pointer (tensor pointer in Triton IR)
       .def("create_make_block_ptr",
            [](TritonOpBuilder &self, Value &base, std::vector<Value> &shape,
@@ -1913,7 +1913,7 @@ void init_triton_ir(py::module &&m) {
                                                   paddingOption);
            });
 
-  py::class_<PassManager>(m, "pass_manager", py::module_local())
+  py::class_<PassManager>(m, "pass_manager")
       .def(py::init<MLIRContext *>())
       .def("enable_debug",
            [](PassManager &self) -> bool {

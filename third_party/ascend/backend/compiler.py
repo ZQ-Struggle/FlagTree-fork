@@ -87,8 +87,6 @@ def make_ttir(mod, metadata, opt):
     passes.common.add_symbol_dce(pm)
     passes.ttir.add_loop_unroll(pm)
     pm.run(mod)
-    from triton.compiler.flagtree_debug import run_ttir_debug_passes_if_needed
-    run_ttir_debug_passes_if_needed(mod, metadata)
     if opt.debug:
         dump_manager = get_dump_manager(metadata["hash"])
         print(f"Dumping intermediate results to {dump_manager.cache_dir}")
@@ -167,8 +165,9 @@ def ttir_to_linalg(mod, metadata, opt, *, named_ops=False):
 
         pm.run(mod)
 
-        from triton.compiler.flagtree_debug import run_ttadapter_debug_passes_if_needed
-        run_ttadapter_debug_passes_if_needed(mod, metadata)
+        from triton._components import run_compiler_hook
+
+        run_compiler_hook("ttadapter.pre_serialize", mod, metadata)
 
         if opt.debug:
             dump_manager = get_dump_manager(metadata["hash"])

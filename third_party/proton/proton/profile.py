@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import pathlib
 
-from triton._C.libproton import proton as libproton
+from .native import runtime_binding
 from .hooks import HookManager, InstrumentationHook, LaunchHook
 from .flags import set_profiling_off, set_profiling_on, is_command_line
 from typing import Optional
@@ -16,6 +16,7 @@ _IR_RECORD_BUFFER_MB_ENV = "PROTON_IR_RECORD_BUFFER_MB"
 _IR_RECORD_SIZE_BYTES = 64
 _DEFAULT_IR_RECORD_BUFFER_MB = 32
 _active_sessions: dict[int, dict[str, object]] = {}
+libproton = runtime_binding()
 
 
 def _env_flag_enabled(name: str) -> bool:
@@ -48,12 +49,9 @@ def _mode_with_ir_triton_overrides(mode: Optional[str]) -> str:
 
 
 def _set_instrumentation_mode(value: str) -> None:
-    try:
-        from triton.compiler import flagtree_debug
+    from triton._components import set_instrumentation_mode
 
-        flagtree_debug.set_instrumentation_mode(value)
-    except Exception:
-        pass
+    set_instrumentation_mode(value)
 
 
 def _instrumentation_record_capacity() -> int:
@@ -65,7 +63,7 @@ def _instrumentation_record_capacity() -> int:
 
 
 def _activate_instrumentation() -> None:
-    from triton.runtime import debugger
+    import triton.debugger as debugger
 
     record_capacity = _instrumentation_record_capacity()
     debugger.clear_exported_runs()
@@ -82,15 +80,15 @@ def _activate_instrumentation() -> None:
 
 
 def _deactivate_instrumentation() -> None:
-    from triton.runtime import debugger
+    import triton.debugger as debugger
 
     debugger.deactivate()
     _set_instrumentation_mode("")
 
 
 def _take_instrumentation_runs() -> list[dict]:
-    from triton.runtime import debugger
-    from triton.runtime.debug_collect_runtime import default_debug_collect_runtime
+    import triton.debugger as debugger
+    from flagtree_debugger.runtime import default_debug_collect_runtime
 
     runs = list(debugger.take_exported_runs())
     runtime_runs = default_debug_collect_runtime.take_exported_runs()

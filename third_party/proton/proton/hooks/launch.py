@@ -1,7 +1,9 @@
 from ..state import enter_state, exit_state
 from triton.compiler import LazyDict
 from .hook import Hook
-from triton._C.libproton import proton as libproton
+from ..native import runtime_binding
+
+libproton = runtime_binding()
 from contextvars import ContextVar
 
 COMPUTE_METADATA_SCOPE_NAME = "__proton_launch_metadata"

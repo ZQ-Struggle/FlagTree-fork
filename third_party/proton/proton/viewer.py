@@ -10,8 +10,8 @@ try:
 except ImportError:
     raise ImportError("Failed to import hatchet. `pip install llnl-hatchet` to get the correct version.")
 import numpy as np
-from triton.profiler.hooks.launch import COMPUTE_METADATA_SCOPE_NAME, LaunchHook
-from triton.profiler import specs
+from .hooks.launch import COMPUTE_METADATA_SCOPE_NAME, LaunchHook
+from . import specs
 
 
 def match_available_metrics(metrics, inclusive_metrics, exclusive_metrics):

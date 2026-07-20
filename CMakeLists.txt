@@ -99,17 +99,11 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # Options
 option(TRITON_BUILD_PYTHON_MODULE "Build Python Triton bindings" OFF)
-option(FLAGTREE_ENABLE_DEBUGGER "Build FlagTree debugger support" ON)
-if(FLAGTREE_ENABLE_DEBUGGER)
-  add_compile_definitions(FLAGTREE_ENABLE_DEBUGGER=1)
-else()
-  add_compile_definitions(FLAGTREE_ENABLE_DEBUGGER=0)
-endif()
 if(FLAGTREE_BACKEND)
   option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" OFF)
   option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" OFF)
 else()
-  option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" ON)
+  option(TRITON_BUILD_PROTON "Build the legacy in-tree Proton runtime" OFF)
   option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" ON)
 endif()
 option(TRITON_BUILD_WITH_CCACHE "Build with ccache (if available)" ON)
@@ -264,7 +258,9 @@ if(NOT MSVC)
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-attributes")
     endif()
   else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wno-covered-switch-default -fvisibility=hidden")
+    # Optional native components resolve the MLIR/Triton ABI from libtriton.
+    # Keep those symbols visible for the component extension boundary.
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wno-covered-switch-default")
   endif()
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4244 /wd4624 /wd4715 /wd4530")
@@ -286,10 +282,6 @@ else()
 endif()
 include_directories(${PROJECT_SOURCE_DIR}/third_party)
 include_directories(${PROJECT_BINARY_DIR}/third_party) # Tablegen'd files
-if(FLAGTREE_ENABLE_DEBUGGER)
-  include_directories(${PROJECT_SOURCE_DIR}/third_party/Debugger/include)
-  include_directories(${PROJECT_BINARY_DIR}/third_party/Debugger/include)
-endif()
 
 # link_directories(${LLVM_LIBRARY_DIR})
 if (FLAGTREE_BACKEND MATCHES "^(cambricon|aipu|tsingmicro|enflame)$")
@@ -302,9 +294,6 @@ elseif(NOT FLAGTREE_BACKEND)
   add_subdirectory(lib)
 endif()
 
-if(FLAGTREE_ENABLE_DEBUGGER)
-  add_subdirectory(third_party/Debugger)
-endif()
 
 # TODO: Figure out which target is sufficient to fix errors; triton is
 # apparently not enough. Currently set linking libstdc++fs for all targets
@@ -372,10 +361,9 @@ if(TRITON_BUILD_PYTHON_MODULE)
   if(TRITON_BUILD_PROTON)
     add_definitions(-D__PROTON__)
     add_subdirectory(third_party/proton)
+    list(APPEND TRITON_PLUGIN_NAMES "proton")
+    add_subdirectory(third_party/proton/Dialect)
   endif()
-  # We always build proton dialect
-  list(APPEND TRITON_PLUGIN_NAMES "proton")
-  add_subdirectory(third_party/proton/Dialect)
 
   # The 3.2 DSA CMake tree defines the same TLE dialect/plugin targets as
   # third_party/tle on 3.5, so do not add it as a second CMake subdirectory.
@@ -514,11 +502,6 @@ if(TRITON_BUILD_PYTHON_MODULE)
 
   set(TRITON_BACKENDS_TUPLE "(${TRITON_BACKENDS_TUPLE})")
   add_compile_definitions(TRITON_BACKENDS_TUPLE=${TRITON_BACKENDS_TUPLE})
-  set(TRITON_DEBUGGER_BINDING_SOURCE)
-  if(FLAGTREE_ENABLE_DEBUGGER)
-    list(APPEND TRITON_DEBUGGER_BINDING_SOURCE
-      ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Debugger/python/Bindings.cpp)
-  endif()
   if(FLAGTREE_BACKEND STREQUAL "cambricon")
     add_library(triton SHARED)
   elseif(FLAGTREE_BACKEND STREQUAL "ascend")
@@ -528,7 +511,6 @@ if(TRITON_BUILD_PYTHON_MODULE)
     add_library(triton SHARED ${PYTHON_SRC_PATH}/main.cc
                 ${PYTHON_SRC_PATH}/ir.cc
                 ${BUFFER_IR_SRC_PATH}/buffer_ir.cc
-                ${TRITON_DEBUGGER_BINDING_SOURCE}
                 ${PYTHON_ROOT_SRC_PATH}/gluon_ir.cc
                 ${PYTHON_ROOT_SRC_PATH}/passes.cc
                 ${PYTHON_ROOT_SRC_PATH}/interpreter.cc
@@ -536,7 +518,6 @@ if(TRITON_BUILD_PYTHON_MODULE)
   else()
     add_library(triton SHARED ${PYTHON_SRC_PATH}/main.cc
                 ${PYTHON_SRC_PATH}/ir.cc
-                ${TRITON_DEBUGGER_BINDING_SOURCE}
                 ${PYTHON_SRC_PATH}/gluon_ir.cc
                 ${PYTHON_SRC_PATH}/passes.cc
                 ${PYTHON_SRC_PATH}/interpreter.cc
@@ -569,10 +550,6 @@ if(TRITON_BUILD_PYTHON_MODULE)
 
 endif()
 
-if (UNIX AND NOT APPLE)
-  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--exclude-libs,ALL")
-endif()
-
 if(TRITON_BUILD_PYTHON_MODULE AND NOT WIN32)
   set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
 
@@ -592,7 +569,9 @@ if(NOT TRITON_BUILD_PYTHON_MODULE)
   foreach(CODEGEN_BACKEND ${TRITON_CODEGEN_BACKENDS})
     add_subdirectory(third_party/${CODEGEN_BACKEND})
   endforeach()
-  add_subdirectory(third_party/proton/Dialect)
+  if(TRITON_BUILD_PROTON)
+    add_subdirectory(third_party/proton/Dialect)
+  endif()
 endif()
 
 find_package(Threads REQUIRED)
@@ -607,15 +586,8 @@ if(FLAGTREE_BACKEND MATCHES "^(ascend)$")
   add_subdirectory(test)
 endif()
 
-if(FLAGTREE_ENABLE_DEBUGGER)
-  add_subdirectory(third_party/Debugger/test/lit)
-endif()
-
 if(TRITON_BUILD_UT)
   add_subdirectory(unittest)
-  if(FLAGTREE_ENABLE_DEBUGGER)
-    add_subdirectory(third_party/Debugger/test/unittest)
-  endif()
   # This target runs all the unit tests.
   add_custom_target(check-triton-unit-tests
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure

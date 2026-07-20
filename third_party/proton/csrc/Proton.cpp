@@ -9,6 +9,10 @@
 
 using namespace proton;
 
+#ifdef FLAGTREE_PROTON_COMPONENT_BUILD
+void init_triton_proton(pybind11::module &&m);
+#endif
+
 static void initProton(pybind11::module &&m) {
   using ret = pybind11::return_value_policy;
   using namespace pybind11::literals;
@@ -115,4 +119,7 @@ static void initProton(pybind11::module &&m) {
 PYBIND11_MODULE(libproton, m) {
   m.doc() = "Python bindings to the Proton API";
   initProton(std::move(m.def_submodule("proton")));
+#ifdef FLAGTREE_PROTON_COMPONENT_BUILD
+  init_triton_proton(std::move(m.def_submodule("compiler")));
+#endif
 }

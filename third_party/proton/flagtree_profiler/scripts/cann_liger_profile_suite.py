@@ -29,7 +29,8 @@ from types import SimpleNamespace
 from typing import Callable
 
 import triton.profiler as proton
-from triton._C.libproton import proton as libproton
+from flagtree_profiler.native import runtime_binding
+libproton = runtime_binding()
 
 
 @dataclass(frozen=True)

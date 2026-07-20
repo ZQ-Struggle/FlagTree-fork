@@ -2,6 +2,9 @@
 
 `third_party/Debugger/include/Debugger` 目录保存 debugger 的公共契约。这里定义的是跨模块都要遵守的接口，而不是某个人的临时实现。
 
+这些头文件随 `flagtree-debugger` 源码和原生 wheel 构建使用，不再编译进 FlagTree
+主 wheel；主仓库仅通过 `triton._components` 的稳定组件接口调用该模块。
+
 目录划分：
 
 - `Common/`：统一协议、record 布局、buffer header、运行时主键
@@ -36,7 +39,7 @@ mode，运行期会为 kernel launch 准备 `__debug_ctrl_ptr` hidden arg，并�
 ```python
 import triton
 import triton.language as tl
-from triton.runtime import debugger
+import triton.debugger as debugger
 
 # 通常在 import 后配置并开启一次。后续哪些 Triton IR op 被记录，
 # 由 @triton.jit 内部的 tl.debug_collect_start/end 控制。
@@ -45,7 +48,7 @@ debugger.configure(
     record_capacity=4096,
     export_raw_records=False,
 )
-triton.enable_debug(level=1, addr_level=0)
+debugger.activate(level=1, addr_level=0)
 
 
 @triton.jit
@@ -63,18 +66,26 @@ def kernel(x_ptr, y_ptr, n: tl.constexpr, BLOCK_SIZE: tl.constexpr):
 kernel[(grid,)](...)
 ```
 
-容器内编译命令：
+容器内构建命令：
 
-当前验证通过的构建方式是在 CANN9 容器内运行仓库根目录的 `build.sh`。脚本统一
-配置 LLVM/clang、Python、CANN、glibc compatibility object 和 CMake 参数，不依赖
-conda clang。
+先构建不含 Debugger 实现的 FlagTree core，再使用同一 LLVM/MLIR 工具链构建
+`flagtree-debugger` wheel。Debugger 的 Python、dialect、passes 和 runtime native
+binding 都归该 wheel 所有。
 
 从 host 侧触发容器内完整 rebuild：
 
 ```bash
-docker exec flagtree-cann9-quan /bin/bash -lc '
+docker exec flagtree-cann9-quan /bin/sh -c '
 cd "${FLAGTREE_SOURCE_DIR:-/workspace/FlagTree}"
-FLAGTREE_ENABLE_DEBUGGER=ON MAX_JOBS=16 bash build.sh --rebuild
+export FLAGTREE_SOURCE_DIR="${FLAGTREE_SOURCE_DIR:-/workspace/FlagTree}"
+export LLVM_SYSPATH=/path/to/llvm
+export PATH="$LLVM_SYSPATH/bin:$PATH"
+export FLAGTREE_BUILD_DIR=/tmp/flagtree-core-build
+FLAGTREE_BACKEND=ascend TRITON_BUILD_PROTON=OFF MAX_JOBS=16 \
+TRITON_BUILD_DIR="$FLAGTREE_BUILD_DIR" \
+python3 -m pip install -e . --no-build-isolation
+FLAGTREE_COMPONENT_BUILD_DIR=/tmp/flagtree-debugger-build \
+python3 -m pip install ./third_party/Debugger --no-build-isolation
 '
 ```
 
@@ -82,7 +93,15 @@ FLAGTREE_ENABLE_DEBUGGER=ON MAX_JOBS=16 bash build.sh --rebuild
 
 ```bash
 cd "${FLAGTREE_SOURCE_DIR:-/workspace/FlagTree}"
-FLAGTREE_ENABLE_DEBUGGER=ON MAX_JOBS=16 bash build.sh --rebuild
+export FLAGTREE_SOURCE_DIR="${FLAGTREE_SOURCE_DIR:-$PWD}"
+export LLVM_SYSPATH=/path/to/llvm
+export PATH="$LLVM_SYSPATH/bin:$PATH"
+export FLAGTREE_BUILD_DIR=/tmp/flagtree-core-build
+FLAGTREE_BACKEND=ascend TRITON_BUILD_PROTON=OFF MAX_JOBS=16 \
+TRITON_BUILD_DIR="$FLAGTREE_BUILD_DIR" \
+python3 -m pip install -e . --no-build-isolation
+FLAGTREE_COMPONENT_BUILD_DIR=/tmp/flagtree-debugger-build \
+python3 -m pip install ./third_party/Debugger --no-build-isolation
 ```
 
 常用接口：
@@ -96,14 +115,14 @@ FLAGTREE_ENABLE_DEBUGGER=ON MAX_JOBS=16 bash build.sh --rebuild
   - `export_raw_records`：是否把 decoded raw records 额外写到 sidecar 文件。
 - `debugger.get_config()`：查询当前默认配置。
 - `debugger.reset_config()`：恢复默认配置。
-- `triton.enable_debug(level=1, addr_level=0)`：开启进程级 debugger 模式。通常
+- `debugger.activate(level=1, addr_level=0)`：开启进程级 debugger 模式。通常
   在 import 后调用一次；`level` 控制数值采集等级，`addr_level` 控制动态地址
   采集，默认 `0` 表示不插入地址采集。
 - `tl.debug_collect_start/end`：在 `@triton.jit` 内界定实际采集范围。Python
-  侧 enable 只开启 debugger pipeline，不会记录普通 PyTorch/torch_npu 语句。
+  侧 `activate` 只开启 debugger pipeline，不会记录普通 PyTorch/torch_npu 语句。
   `tl.debug_collect_start(level=..., addr_level=...)` 可覆盖当前 region 的地址
-  采集等级；不传 `addr_level` 时继承 `triton.enable_debug(...)` 的配置。
-- `triton.disable_debug()`：关闭 debugger，并清理 launch hook。普通一次性脚本
+  采集等级；不传 `addr_level` 时继承 `debugger.activate(...)` 的配置。
+- `debugger.deactivate()`：关闭 debugger，并清理 launch hook。普通一次性脚本
   通常不需要调用；长进程、notebook 或测试套件中可用它避免影响后续 kernel。
 - `debugger.take_exported_runs()`：取回本进程内已导出的 run 信息。
 - `debugger.clear_exported_runs()`：清空本进程内已缓存的导出结果。
@@ -131,7 +150,7 @@ FLAGTREE_ENABLE_DEBUGGER=ON MAX_JOBS=16 bash build.sh --rebuild
 - 主报告默认只包含整理后的 header 和文本报告，不直接 dump decoded raw records。
 - 需要调试 raw record 时，先使用
   `debugger.configure(export_raw_records=True)`，再在进程初始化阶段
-  `triton.enable_debug(level=1)`，会额外生成
+  `debugger.activate(level=1)`，会额外生成
   `*_raw_records.txt`。
 
 查看报告：

@@ -123,6 +123,19 @@ class NPULauncher(object):
         spec.loader.exec_module(mod)
         self.launch = getattr(mod, "launch")
 
+    def set_component_hidden_args(self, kernel_args):
+        kernel_args = tuple(kernel_args)
+        expected = 1 if self.debug_launch_hidden_arg else 0
+        if len(kernel_args) != expected:
+            raise RuntimeError(
+                f"instrumented Ascend kernel requires {expected} component hidden argument(s)"
+            )
+        self.debug_ctrl_ptr = int(kernel_args[0]) if kernel_args else 0
+
+    def disable_component_hidden_args(self):
+        self.debug_launch_hidden_arg = False
+        self.debug_ctrl_ptr = 0
+
     def __call__(self, *args, **kwargs):
         if self.compile_only:
             cache_manager = get_cache_manager(args[5]['hash'])

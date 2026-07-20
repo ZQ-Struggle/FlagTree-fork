@@ -20,6 +20,7 @@ from . import _async_compile
 from .._utils import find_paths_if, get_iterable_path, type_canonicalisation_dict, canonicalize_dtype
 from .cache import get_cache_key
 from triton._C.libtriton import get_cache_invalidating_env_vars
+from triton._components import finalize_prepared_launch, prepare_kernel_launch
 
 TRITON_MODULE = "triton.language"
 GLUON_MODULE = "triton.experimental.gluon.language"
@@ -35,43 +36,40 @@ def _apply_compilation_instrumentation_mode(kwargs):
         kwargs["instrumentation_mode"] = str(mode)
 
 
-def _disable_flagtree_debug_hidden_arg(kernel):
+def _disable_component_hidden_args(kernel):
     run = getattr(kernel, "run", None)
-    if run is not None:
-        run.debug_launch_hidden_arg = False
-        run.debug_ctrl_ptr = 0
+    callback = getattr(run, "disable_component_hidden_args", None)
+    if callable(callback):
+        callback()
 
 
-def _prepare_flagtree_debug_launch(kernel, stream, launch_metadata, kernel_args):
+def _prepare_component_launch(kernel, stream, launch_metadata, kernel_args):
     records_per_instance = int(
         getattr(kernel.metadata, "debug_records_per_instance", 0)
     )
     if (not getattr(kernel.metadata, "debug_launch_hidden_arg", False)
             or records_per_instance <= 0):
-        _disable_flagtree_debug_hidden_arg(kernel)
-        if not getattr(kernel.metadata, "debug_enabled", False):
-            return None
-        from triton.runtime import debugger as flagtree_debugger
+        _disable_component_hidden_args(kernel)
 
-        return flagtree_debugger.prepare_metadata_only_kernel_launch(
-            kernel.metadata, stream, launch_metadata, kernel_args
-        )
-
-    from triton.runtime import debugger as flagtree_debugger
-
-    prepared = flagtree_debugger.prepare_kernel_launch(
+    prepared = prepare_kernel_launch(
         kernel.metadata, stream, launch_metadata, kernel_args
     )
-    if prepared is not None and prepared.kernel_args:
-        kernel.run.debug_ctrl_ptr = int(prepared.kernel_args[0])
+    try:
+        hidden_args = prepared.kernel_args if prepared is not None else ()
+        setter = getattr(kernel.run, "set_component_hidden_args", None)
+        if hidden_args and not callable(setter):
+            raise RuntimeError("Ascend launcher does not support component hidden arguments")
+        if callable(setter):
+            setter(hidden_args)
+    except BaseException as exc:
+        finalize_prepared_launch(prepared, exc)
+        raise
     return prepared
 
 
-def _finalize_flagtree_debug_launch(prepared, error):
+def _finalize_component_launch(prepared, error):
     if prepared is None:
         return
-    from triton.runtime import debugger as flagtree_debugger
-
     final_error = error
     if final_error is None:
         try:
@@ -81,7 +79,7 @@ def _finalize_flagtree_debug_launch(prepared, error):
         except BaseException as exc:
             final_error = exc
     try:
-        flagtree_debugger.finalize_prepared_launch(prepared, final_error)
+        finalize_prepared_launch(prepared, final_error)
     finally:
         if error is None and final_error is not None:
             raise final_error
@@ -816,7 +814,7 @@ class JITFunction(JITCallable, KernelInterface[T]):
             # launch kernel
             kernel_args = list(bound_args.values())
             launch_metadata = kernel.launch_metadata(grid, stream, *kernel_args)
-            prepared_debug_launch = _prepare_flagtree_debug_launch(
+            prepared_component_launch = _prepare_component_launch(
                 kernel, stream, launch_metadata, kernel_args
             )
             launch_error = None
@@ -827,7 +825,7 @@ class JITFunction(JITCallable, KernelInterface[T]):
                 launch_error = exc
                 raise
             finally:
-                _finalize_flagtree_debug_launch(prepared_debug_launch, launch_error)
+                _finalize_component_launch(prepared_component_launch, launch_error)
         return kernel
 
     def repr(self, _):

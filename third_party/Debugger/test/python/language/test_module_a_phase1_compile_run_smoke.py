@@ -21,8 +21,8 @@ torch = pytest.importorskip("torch")
 pytest.importorskip("triton.backends.nvidia.driver")
 
 import triton
+import triton.debugger as debugger
 import triton.language as tl
-from triton.runtime import debugger
 
 
 @pytest.mark.module_a

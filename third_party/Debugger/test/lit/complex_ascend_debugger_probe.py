@@ -328,7 +328,9 @@ def run_probe() -> dict:
     make_launcher_no_pch = patch_launcher_build()
 
     import acl
-    from triton._C.libtriton import debugger as dbg
+    from flagtree_debugger.native import runtime_binding
+    dbg = runtime_binding()
+    assert dbg is not None
     from triton.backends.compiler import GPUTarget
     from triton.runtime import driver
 

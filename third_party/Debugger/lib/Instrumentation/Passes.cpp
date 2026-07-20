@@ -858,17 +858,9 @@ Value loadRingHeaderI32(OpBuilder &builder, Location loc, Value ctrlWordPtr,
                         int64_t fieldOffset) {
   assert(fieldOffset >= 0 && fieldOffset < kRingHeaderBytes &&
          fieldOffset % 4 == 0 && "ring header field must be word-aligned");
-  constexpr int64_t kHeaderWords = kRingHeaderBytes / 4;
-  auto i32TensorType =
-      RankedTensorType::get({kHeaderWords}, builder.getI32Type());
-  Value offsets = builder.create<triton::MakeRangeOp>(
-      loc, i32TensorType, 0, static_cast<int32_t>(kHeaderWords));
-  Value ptrs = addWordOffsetLike(builder, loc, ctrlWordPtr, offsets);
-  Value header =
-      builder.create<triton::LoadOp>(loc, ptrs, triton::CacheModifier::NONE,
-                                     triton::EvictionPolicy::NORMAL, false);
-  Value index = builder.create<arith::ConstantIndexOp>(loc, fieldOffset / 4);
-  return builder.create<tensor::ExtractOp>(loc, header, ValueRange{index});
+  Value fieldPtr = absoluteFieldPointer(builder, loc, ctrlWordPtr, fieldOffset,
+                                        builder.getI32Type());
+  return loadI32(builder, loc, fieldPtr);
 }
 
 void storeValue(OpBuilder &builder, Location loc, Value ptr, Value value,

@@ -269,6 +269,9 @@ def _compile_design_example_with_hidden_debug_arg(monkeypatch):
     else:
         backend.add_stages(stages, options)
     current = stages["ttir"](current, metadata)
+    from triton._components import run_compiler_hook
+
+    run_compiler_hook("ttir.post_optimization", current, metadata)
     ttir = str(current)
     current = stages["ttadapter"](current, metadata)
     ttadapter_ir = str(current)
@@ -389,7 +392,9 @@ def test_module_c_doc_example_instrumented_ir():
 
 
 def test_module_f_exported_buffer_decodes_through_module_d():
-    from triton._C.libtriton import debugger as dbg
+    from flagtree_debugger.native import runtime_binding
+    dbg = runtime_binding()
+    assert dbg is not None
 
     handle = dbg.prepare_launch(
         {
@@ -416,7 +421,9 @@ def test_module_f_exported_buffer_decodes_through_module_d():
 
 
 def test_module_d_decodes_summary_record_and_exports_text_report():
-    from triton._C.libtriton import debugger as dbg
+    from flagtree_debugger.native import runtime_binding
+    dbg = runtime_binding()
+    assert dbg is not None
 
     header = struct.pack("<IIIIIIII", 1, 1, 0, 0, 32, 64, 0, 0)
     summary = struct.pack("<HHIQHHId", 1, 0, 7, 42, 3, 3, 0, 3.5)
@@ -459,7 +466,9 @@ def test_module_d_decodes_summary_record_and_exports_text_report():
 
 
 def test_module_f_cann_export_decodes_to_module_d_report_for_doc_example():
-    from triton._C.libtriton import debugger as dbg
+    from flagtree_debugger.native import runtime_binding
+    dbg = runtime_binding()
+    assert dbg is not None
 
     acl = _require_acl_device()
     metadata_json = _doc_example_metadata_json(backend_name="ascend")
@@ -515,7 +524,9 @@ def test_module_f_cann_export_decodes_to_module_d_report_for_doc_example():
 
 
 def test_compiled_design_example_instrumented_ir_exports_final_debugger_report(monkeypatch):
-    from triton._C.libtriton import debugger as dbg
+    from flagtree_debugger.native import runtime_binding
+    dbg = runtime_binding()
+    assert dbg is not None
 
     metadata, instrumented_ttir, ttadapter_ir, _ = _compile_design_example_with_hidden_debug_arg(monkeypatch)
     compiled_metadata = json.loads(metadata["debug_metadata_json"])
@@ -547,7 +558,7 @@ def test_compiled_design_example_instrumented_ir_exports_final_debugger_report(m
     assert "flagtree.debug.record_size = 64 : i32" in instrumented_ttir
     assert "flagtree.debug.records_per_instance = 10 : i32" in instrumented_ttir
     assert "tt.atomic_rmw" not in instrumented_ttir
-    assert "tensor<8x!tt.ptr<i32>>" in instrumented_ttir
+    assert "tensor<8x!tt.ptr<i32>>" not in instrumented_ttir
     assert "tt.store" in instrumented_ttir
     assert 'flagtree.debug.hidden_arg_type = "!tt.ptr<i32>"' in instrumented_ttir
     assert "flagtree_debug.record_summary" not in ttadapter_ir

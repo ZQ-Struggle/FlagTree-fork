@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import importlib
 import os
 from typing import Any
 
@@ -32,7 +31,15 @@ class DebugCollectRuntime:
 
     @staticmethod
     def _binding():
-        return importlib.import_module("triton._C.libtriton").debugger
+        from .native import runtime_binding
+
+        binding = runtime_binding()
+        if binding is None:
+            raise RuntimeError(
+                "FlagTree debugger native support is unavailable. Install a "
+                "compatible flagtree-debugger wheel."
+            )
+        return binding
 
     @staticmethod
     def _metadata_to_dict(metadata: Any) -> dict[str, Any]:
@@ -154,7 +161,7 @@ class DebugCollectRuntime:
             and int(metadata_dict.get("debug_full_dump_payload_bytes_per_instance", 0)) > 0
             and metadata_dict.get("debug_full_dump_plan")
         ):
-            from triton.runtime import debugger as process_debugger
+            from . import api as process_debugger
 
             if process_debugger.get_output_dir() is None:
                 raise RuntimeError("level-2 debugger full dump requires debugger output_dir")
@@ -184,7 +191,7 @@ class DebugCollectRuntime:
             and int(metadata_dict.get("debug_full_dump_payload_bytes_per_instance", 0)) > 0
             and metadata_dict.get("debug_full_dump_plan")
         ):
-            from triton.runtime import debugger as process_debugger
+            from . import api as process_debugger
 
             finalized = process_debugger._finalize_exported_run(  # noqa: SLF001
                 dict(exported), metadata_dict

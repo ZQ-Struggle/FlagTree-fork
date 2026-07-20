@@ -1,4 +1,6 @@
 add_subdirectory(Analysis)
 add_subdirectory(Dialect)
 add_subdirectory(Instrumentation)
-add_subdirectory(Proton)
+if(TRITON_BUILD_PROTON)
+  add_subdirectory(Proton)
+endif()

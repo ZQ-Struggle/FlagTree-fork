@@ -20,7 +20,7 @@ __doc__ = _mad.extend_doc(__doc__)
 
 pytest.importorskip("triton.backends.nvidia.driver")
 from triton.backends.nvidia import driver as nvidia_driver
-from triton.compiler.flagtree_debug import prepare_launch_debug_ctrl
+from flagtree_debugger.compiler import prepare_launch_debug_ctrl
 
 
 def _launcher_meta(debug_enabled=True, debug_launch_hidden_arg=True):

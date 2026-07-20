@@ -5,8 +5,8 @@ from pathlib import Path
 import torch
 import torch_npu
 import triton
+import triton.debugger as debugger
 import triton.language as tl
-from triton.runtime import debugger
 
 
 OUTPUT_DIR = Path("/tmp/flagtree_debugger_softmax_level2_example")
@@ -17,7 +17,7 @@ debugger.configure(
     record_capacity=4096,
     export_raw_records=False,
 )
-triton.enable_debug(level=2, addr_level=2)
+debugger.activate(level=2, addr_level=2)
 
 
 @triton.jit

@@ -8,7 +8,7 @@ from pathlib import Path
 from triton import knobs
 from triton.runtime.build import compile_module_from_src
 from triton.runtime import _allocation
-from triton.runtime.debugger import finalize_prepared_launch, prepare_kernel_launch
+from triton._components import finalize_prepared_launch, prepare_kernel_launch
 from triton.backends.compiler import GPUTarget
 from triton.backends.driver import GPUDriver
 
@@ -699,7 +699,7 @@ class CudaLauncher(object):
         self.debug_enabled = bool(getattr(metadata, "debug_enabled", False))
         self.debug_launch_hidden_arg = bool(getattr(metadata, "debug_launch_hidden_arg", False))
         self.debug_ctrl_ptr = 0
-        self.manages_debug_launch = True
+        self.manages_component_launch = True
         self.base_args_format_len = _BASE_ARGS_FORMAT_LEN + (1 if self.debug_launch_hidden_arg else 0)
         src = make_launcher(constants, signature, tensordesc_meta, debug_enabled=self.debug_launch_hidden_arg)
         mod = compile_module_from_src(
@@ -752,18 +752,23 @@ class CudaLauncher(object):
         launch_fixed_args = args[:4]
         kernel_args = args[4:]
         launch_metadata = launch_fixed_args[1] if len(launch_fixed_args) > 1 else None
-        prepared_launch = prepare_kernel_launch(
-            self.metadata, stream, launch_metadata, kernel_args)
-        debug_kernel_args = prepared_launch.kernel_args if prepared_launch is not None else ()
-        if self.debug_launch_hidden_arg and len(debug_kernel_args) != 1:
-            raise RuntimeError("debug-enabled CUDA kernel requires exactly one hidden argument")
-        if not self.debug_launch_hidden_arg and debug_kernel_args:
-            raise RuntimeError("CUDA debugger prepared hidden arguments for a metadata-only kernel")
+        prepared_launch = None
+        try:
+            prepared_launch = prepare_kernel_launch(
+                self.metadata, stream, launch_metadata, kernel_args)
+            component_kernel_args = prepared_launch.kernel_args if prepared_launch is not None else ()
+            if self.debug_launch_hidden_arg and len(component_kernel_args) != 1:
+                raise RuntimeError("instrumented CUDA kernel requires exactly one component hidden argument")
+            if not self.debug_launch_hidden_arg and component_kernel_args:
+                raise RuntimeError("CUDA component prepared hidden arguments for a metadata-only kernel")
+        except BaseException as exc:
+            finalize_prepared_launch(prepared_launch, exc)
+            raise
 
         launch_error = None
         try:
             self.launch(gridX, gridY, gridZ, stream, function, self.launch_cooperative_grid, self.launch_pdl,
-                        global_scratch, profile_scratch, *launch_fixed_args, *debug_kernel_args, *kernel_args)
+                        global_scratch, profile_scratch, *launch_fixed_args, *component_kernel_args, *kernel_args)
         except BaseException as exc:
             launch_error = exc
             raise

@@ -1,14 +1,19 @@
 import triton
 import triton.language as tl
+from flagtree_debugger.native import compiler_binding
 from triton.backends.compiler import GPUTarget
 from triton.compiler import ASTSource
 from triton._C.libtriton import ir, passes
-from triton._C.libtriton.passes import flagtree_debug as fd
 import pytest
 import inspect
 import importlib.util
 import json
 import os
+
+
+fd = compiler_binding()
+if fd is None:
+    pytest.skip("flagtree-debugger native binding is unavailable", allow_module_level=True)
 
 
 def _source(fn):
@@ -125,6 +130,7 @@ def test_debug_compile_metadata_keys():
 def test_debug_collect_skips_call_ops_in_metadata(tmp_path):
     ctx = ir.context()
     ir.load_dialects(ctx)
+    fd.load_dialects(ctx)
     path = tmp_path / "debug_call_skip.mlir"
     path.write_text(
         """
@@ -163,6 +169,7 @@ def test_debug_collect_skips_call_ops_in_metadata(tmp_path):
 def test_debug_collect_does_not_penetrate_called_helpers(tmp_path):
     ctx = ir.context()
     ir.load_dialects(ctx)
+    fd.load_dialects(ctx)
     path = tmp_path / "debug_call_no_penetration.mlir"
     path.write_text(
         """
@@ -208,6 +215,7 @@ def test_debug_collect_does_not_penetrate_called_helpers(tmp_path):
 def test_debug_collect_records_outer_reduce_not_combiner_body(tmp_path):
     ctx = ir.context()
     ir.load_dialects(ctx)
+    fd.load_dialects(ctx)
     path = tmp_path / "debug_reduce_outer_only.mlir"
     path.write_text(
         """
@@ -249,10 +257,11 @@ def test_debug_collect_records_outer_reduce_not_combiner_body(tmp_path):
 
 
 def test_debug_collect_tensor_pointer_ops_are_metadata_only(tmp_path):
-    from triton.compiler.flagtree_debug import run_ttir_debug_passes_if_needed
+    from flagtree_debugger.compiler import run_ttir_debug_passes_if_needed
 
     ctx = ir.context()
     ir.load_dialects(ctx)
+    fd.load_dialects(ctx)
     path = tmp_path / "debug_tensor_pointer_metadata_only.mlir"
     path.write_text(
         """
@@ -305,6 +314,7 @@ def test_debug_collect_tensor_pointer_ops_are_metadata_only(tmp_path):
 def test_debug_collect_large_store_level1_keeps_representative_memory_event(tmp_path):
     ctx = ir.context()
     ir.load_dialects(ctx)
+    fd.load_dialects(ctx)
     path = tmp_path / "debug_large_store_metadata_only.mlir"
     path.write_text(
         """
@@ -345,6 +355,7 @@ def test_debug_collect_large_store_level1_keeps_representative_memory_event(tmp_
 def test_debug_collect_second_inliner_restores_call_free_helper(tmp_path):
     ctx = ir.context()
     ir.load_dialects(ctx)
+    fd.load_dialects(ctx)
     path = tmp_path / "debug_call_second_inline.mlir"
     path.write_text(
         """

@@ -4,7 +4,7 @@ import os
 import flag_gems
 import torch
 import triton
-from triton.runtime import debugger
+import triton.debugger as debugger
 
 try:
     import torch_npu
@@ -30,7 +30,7 @@ debugger.configure(
     export_raw_records=os.environ.get("FLAGTREE_DEBUGGER_BATCH_EXPORT_RAW", "0")
     == "1",
 )
-triton.enable_debug(
+debugger.activate(
     level=int(os.environ.get("FLAGTREE_DEBUGGER_BATCH_LEVEL", "1")),
     addr_level=int(os.environ.get("FLAGTREE_DEBUGGER_BATCH_ADDR_LEVEL", "1")),
 )

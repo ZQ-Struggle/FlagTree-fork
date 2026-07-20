@@ -1,8 +1,10 @@
 import pathlib
 import pytest
 
-import triton._C.libproton.proton as libproton
+from flagtree_profiler.native import runtime_binding
 from triton.profiler.profile import _select_backend
+
+libproton = runtime_binding()
 
 
 def test_record():

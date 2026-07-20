@@ -6,10 +6,12 @@ import os
 
 from triton._C.libtriton import ir, passes
 
+from .native import compiler_binding
+
 _instrumentation_mode = ""
 _DISABLED_BUILD_MESSAGE = (
-    "FlagTree debugger support is not available in this build; rebuild with "
-    "-DFLAGTREE_ENABLE_DEBUGGER=ON"
+    "FlagTree debugger compiler support is unavailable. Install a "
+    "flagtree-debugger wheel compatible with the installed FlagTree version."
 )
 
 
@@ -23,7 +25,15 @@ def get_instrumentation_mode() -> str:
 
 
 def _get_debug_passes():
-    return getattr(passes, "flagtree_debug", None)
+    return compiler_binding()
+
+
+def load_dialects(context) -> None:
+    binding = _get_debug_passes()
+    callback = getattr(binding, "load_dialects", None) if binding is not None else None
+    if not callable(callback):
+        raise RuntimeError(_DISABLED_BUILD_MESSAGE)
+    callback(context)
 
 
 def _run_pass_manager(pm, mod, description: str) -> None:
@@ -39,7 +49,7 @@ def _debug_launch_hidden_arg_enabled() -> bool:
     if os.environ.get("TRITON_FLAGTREE_DEBUG_LAUNCH_PTR", "") == "1":
         return True
     try:
-        from triton.runtime import debugger
+        from . import api as debugger
 
         return debugger.is_active()
     except Exception:
@@ -99,7 +109,7 @@ def run_ttir_debug_passes_if_needed(mod, metadata: dict) -> None:
 
     if auto_collect:
         try:
-            from triton.runtime import debugger
+            from . import api as debugger
 
             debug_config = debugger.current_compile_config()
         except Exception:
@@ -113,13 +123,19 @@ def run_ttir_debug_passes_if_needed(mod, metadata: dict) -> None:
         metadata["debug_launch_hidden_arg"] = False
         return
     try:
-        from triton.runtime import debugger
+        from . import api as debugger
 
         debug_config = debugger.current_compile_config()
     except Exception:
         debug_config = {}
 
     metadata["debug_enabled"] = True
+    required_components = set(metadata.get("required_components", ()))
+    required_components.add("debugger")
+    metadata["required_components"] = sorted(required_components)
+    component_versions = dict(metadata.get("component_api_versions", {}))
+    component_versions["debugger"] = 1
+    metadata["component_api_versions"] = component_versions
     metadata["debug_protocol_version"] = 2
     metadata["debug_record_level"] = int(debug_config.get("debug_record_level", 1))
     metadata["debug_addr_level"] = int(debug_config.get("debug_addr_level", 0))
@@ -206,3 +222,23 @@ def prepare_launch_debug_ctrl(compiled_kernel, stream) -> None:
     launcher = compiled_kernel._run
     if getattr(launcher, "debug_launch_hidden_arg", False):
         launcher.debug_ctrl_ptr = int(getattr(compiled_kernel, "_debug_ctrl_ptr", 0))
+
+
+def run_compiler_hook(stage: str, mod, metadata: dict) -> None:
+    set_instrumentation_mode(str(metadata.get("instrumentation_mode", "")))
+    if stage == "ttir.post_optimization":
+        run_ttir_debug_passes_if_needed(mod, metadata)
+    elif stage == "ttadapter.pre_serialize":
+        run_ttadapter_debug_passes_if_needed(mod, metadata)
+
+
+def update_compile_metadata(metadata: dict) -> None:
+    if not str(metadata.get("instrumentation_mode", "")).startswith("debugger"):
+        return
+    from .api import current_compile_config
+
+    metadata.update(current_compile_config())
+    metadata.setdefault("debug_enabled", True)
+    required_components = set(metadata.get("required_components", ()))
+    required_components.add("debugger")
+    metadata["required_components"] = sorted(required_components)

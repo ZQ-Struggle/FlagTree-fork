@@ -828,7 +828,7 @@ platform.python_version_tuple = lambda: ("3", "11", "15")
 
 try:
     import triton
-    from triton.runtime import debugger
+    import triton.debugger as debugger
 
     output_dir = os.environ.get("FLAGTREE_DEBUGGER_BATCH_OUTPUT_DIR")
     if output_dir:
@@ -837,7 +837,7 @@ try:
             record_capacity=int(os.environ.get("FLAGTREE_DEBUGGER_BATCH_RECORD_CAPACITY", "4096")),
             export_raw_records=os.environ.get("FLAGTREE_DEBUGGER_BATCH_EXPORT_RAW", "0") == "1",
         )
-        triton.enable_debug(
+        debugger.activate(
             level=int(os.environ.get("FLAGTREE_DEBUGGER_BATCH_LEVEL", "1")),
             addr_level=int(os.environ.get("FLAGTREE_DEBUGGER_BATCH_ADDR_LEVEL", "1")),
         )

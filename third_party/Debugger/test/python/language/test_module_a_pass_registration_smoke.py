@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""模块 A：确认 ``passes.flagtree_debug`` 中 resolve / assign / instrumentation 可从 Python 引用。
+"""模块 A：确认独立 Debugger binding 中的编译 passes 可从 Python 引用。
 
 契约 ID: **§3.1 编译管线挂接**（轻量 smoke，不重复 pass 逻辑）。
 """
@@ -17,7 +17,12 @@ __doc__ = _mad.extend_doc(__doc__)
 
 import pytest
 
-from triton._C.libtriton.passes import flagtree_debug as fd
+from flagtree_debugger.native import compiler_binding
+
+
+fd = compiler_binding()
+if fd is None:
+    pytest.skip("flagtree-debugger native binding is unavailable", allow_module_level=True)
 
 
 @pytest.mark.module_a
