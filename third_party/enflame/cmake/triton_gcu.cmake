@@ -24,7 +24,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/include) # Tablegen'd files
 # 使用本地的 triton 文件，不需要下载（使用根目录的 triton）
 set(third_party_triton_${arch}_fetch_src "${CMAKE_SOURCE_DIR}")
 set(third_party_triton_${arch}_fetch_bin "${CMAKE_CURRENT_BINARY_DIR}/third_party_triton_${arch}_bin")
-file(GLOB_RECURSE third_party_triton_${arch}_src "${CMAKE_SOURCE_DIR}/include/*" "${CMAKE_SOURCE_DIR}/lib/*" "${CMAKE_SOURCE_DIR}/third_party/f2reduce/*" "${CMAKE_SOURCE_DIR}/third_party/FlagTree_Tools/proton/*")
+file(GLOB_RECURSE third_party_triton_${arch}_src "${CMAKE_SOURCE_DIR}/include/*" "${CMAKE_SOURCE_DIR}/lib/*" "${CMAKE_SOURCE_DIR}/third_party/f2reduce/*" "${CMAKE_SOURCE_DIR}/third_party/FlagTree_DevTools/proton/*")
 
 include(${CMAKE_CURRENT_LIST_DIR}/triton_${arch}.cmake)
 

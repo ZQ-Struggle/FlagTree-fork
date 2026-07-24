@@ -359,9 +359,9 @@ if(TRITON_BUILD_PYTHON_MODULE)
 
   if(TRITON_BUILD_PROTON)
     add_definitions(-D__PROTON__)
-    add_subdirectory(third_party/FlagTree_Tools/proton)
+    add_subdirectory(third_party/FlagTree_DevTools/proton)
     list(APPEND TRITON_PLUGIN_NAMES "proton")
-    add_subdirectory(third_party/FlagTree_Tools/proton/Dialect)
+    add_subdirectory(third_party/FlagTree_DevTools/proton/Dialect)
   endif()
 
   # The 3.2 DSA CMake tree defines the same TLE dialect/plugin targets as
@@ -569,7 +569,7 @@ if(NOT TRITON_BUILD_PYTHON_MODULE)
     add_subdirectory(third_party/${CODEGEN_BACKEND})
   endforeach()
   if(TRITON_BUILD_PROTON)
-    add_subdirectory(third_party/FlagTree_Tools/proton/Dialect)
+    add_subdirectory(third_party/FlagTree_DevTools/proton/Dialect)
   endif()
 endif()
 

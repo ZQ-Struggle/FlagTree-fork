@@ -1,3 +1,3 @@
-[submodule "third_party/FlagTree_Tools"]
-	path = third_party/FlagTree_Tools
-	url = https://github.com/ZQ-Struggle/FlagTree_Tools.git
+[submodule "third_party/FlagTree_DevTools"]
+	path = third_party/FlagTree_DevTools
+	url = https://github.com/ZQ-Struggle/FlagTree_DevTools.git
