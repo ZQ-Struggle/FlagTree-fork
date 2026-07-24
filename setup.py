@@ -408,11 +408,6 @@ class CMakeBuildPy(build_py):
         if extension_dir.is_dir():
             for artifact in extension_dir.glob("libproton*"):
                 artifact.unlink()
-        for cache_dir in Path(self.build_lib).rglob("__pycache__"):
-            shutil.rmtree(cache_dir)
-        for pattern in ("*.pyc", "*.pyo"):
-            for bytecode in Path(self.build_lib).rglob(pattern):
-                bytecode.unlink()
 
 
 class CMakeExtension(Extension):

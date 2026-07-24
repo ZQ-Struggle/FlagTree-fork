@@ -1,7 +1,7 @@
 get_property(triton_libs GLOBAL PROPERTY TRITON_LIBS)
-set(flagtree_debugger_libs)
-if(FLAGTREE_ENABLE_DEBUGGER)
-  list(APPEND flagtree_debugger_libs FlagTreeDebugger)
+set(TRITON_PROTON_TEST_LIBS)
+if(TRITON_BUILD_PROTON)
+  list(APPEND TRITON_PROTON_TEST_LIBS TritonTestProton)
 endif()
 
 add_llvm_executable(triton-opt triton-opt.cpp PARTIAL_SOURCES_INTENDED)
@@ -10,12 +10,11 @@ add_llvm_executable(triton-opt triton-opt.cpp PARTIAL_SOURCES_INTENDED)
 llvm_update_compile_flags(triton-opt)
 target_link_libraries(triton-opt PRIVATE
   ${triton_libs}
-  ${flagtree_debugger_libs}
   # tests
   TritonTestAnalysis
   TritonTestDialect
   TritonAMDGPUTestAnalysis
-  TritonTestProton
+  ${TRITON_PROTON_TEST_LIBS}
   # MLIR core
   MLIROptLib
   MLIRPass
@@ -32,12 +31,11 @@ mlir_check_all_link_libraries(triton-reduce)
 llvm_update_compile_flags(triton-reduce)
 target_link_libraries(triton-reduce PRIVATE
   ${triton_libs}
-  ${flagtree_debugger_libs}
   # tests
   TritonTestAnalysis
   TritonTestDialect
   TritonAMDGPUTestAnalysis
-  TritonTestProton
+  ${TRITON_PROTON_TEST_LIBS}
   # MLIR core
   MLIRReduceLib
   MLIRPass
@@ -53,12 +51,11 @@ add_llvm_executable(triton-lsp triton-lsp.cpp PARTIAL_SOURCES_INTENDED)
 llvm_update_compile_flags(triton-lsp)
 target_link_libraries(triton-lsp PRIVATE
   ${triton_libs}
-  ${flagtree_debugger_libs}
   # tests
   TritonTestAnalysis
   TritonTestDialect
   TritonAMDGPUTestAnalysis
-  TritonTestProton
+  ${TRITON_PROTON_TEST_LIBS}
   # MLIR core
   MLIRLspServerLib
   MLIRPass
@@ -93,10 +90,9 @@ export_executable_symbols_for_plugins(triton-llvm-opt)
 add_llvm_executable(triton-tensor-layout triton-tensor-layout.cpp PARTIAL_SOURCES_INTENDED)
 target_link_libraries(triton-tensor-layout PRIVATE
   ${triton_libs}
-  ${flagtree_debugger_libs}
   TritonTestAnalysis
   TritonTestDialect
-  TritonTestProton
+  ${TRITON_PROTON_TEST_LIBS}
   TritonAMDGPUTestAnalysis
   MLIRRegisterAllDialects
   MLIRRegisterAllPasses

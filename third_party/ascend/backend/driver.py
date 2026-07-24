@@ -108,10 +108,7 @@ class NPULauncher(object):
         signature = {cst_key(key): value for key, value in src.signature.items()}
         wrapper_src = make_launcher(constants, signature, metadata)
         so_launcher_path = make_npu_launcher_stub(header_src, wrapper_src, metadata.debug)
-        self.debug_launch_hidden_arg = bool(
-            getattr(metadata, "debug_launch_hidden_arg", False)
-        )
-        self.debug_ctrl_ptr = 0
+        self.metadata = metadata
         # setup for remote run
         # TODO: use a var to pack all vars required to run on a remote machine
         self.mix_mode = metadata.mix_mode
@@ -122,19 +119,6 @@ class NPULauncher(object):
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         self.launch = getattr(mod, "launch")
-
-    def set_component_hidden_args(self, kernel_args):
-        kernel_args = tuple(kernel_args)
-        expected = 1 if self.debug_launch_hidden_arg else 0
-        if len(kernel_args) != expected:
-            raise RuntimeError(
-                f"instrumented Ascend kernel requires {expected} component hidden argument(s)"
-            )
-        self.debug_ctrl_ptr = int(kernel_args[0]) if kernel_args else 0
-
-    def disable_component_hidden_args(self):
-        self.debug_launch_hidden_arg = False
-        self.debug_ctrl_ptr = 0
 
     def __call__(self, *args, **kwargs):
         if self.compile_only:
@@ -149,10 +133,27 @@ class NPULauncher(object):
         else:
             if self.compile_only:
                 return
-            launch_args = args
-            if self.debug_launch_hidden_arg:
-                launch_args = (*args, int(self.debug_ctrl_ptr))
-            profiler_registered = self.launch(*launch_args, **kwargs)
+            debug_enabled = bool(getattr(self.metadata, "debug_enabled", False))
+            if debug_enabled:
+                try:
+                    from flagtree_debugger import ascend_launch_context
+                except ModuleNotFoundError:
+                    raise RuntimeError(
+                        "this kernel requires FlagTree debugger; install it with "
+                        "`python -m pip install flagtree-debugger`"
+                    ) from None
+                with ascend_launch_context(
+                    self.metadata,
+                    args[:3],
+                    args[3],
+                    args[6],
+                    args[9:],
+                ) as hidden_args:
+                    profiler_registered = self.launch(
+                        *args, *hidden_args, **kwargs
+                    )
+            else:
+                profiler_registered = self.launch(*args, **kwargs)
             import triton
             triton.backends.ascend.utils.TRITON_PROFILER_REGISTERED = True if profiler_registered == 1 else False
 
@@ -537,22 +538,20 @@ def make_launcher(constants, signature, metadata):
         PyObject* launch_enter_hook, *launch_exit_hook;
         *args_expand
     """
-    debug_launch_hidden_arg = bool(
-        getattr(metadata, "debug_launch_hidden_arg", False)
-    )
-    debug_format = "K" if debug_launch_hidden_arg else ""
-    debug_extracted_decl = "uint64_t _debugCtrlPtr = 0;" if debug_launch_hidden_arg else ""
-    debug_parse_arg = ", &_debugCtrlPtr" if debug_launch_hidden_arg else ""
-    debug_launch_arg_decl = ", uint64_t debugCtrlPtr" if debug_launch_hidden_arg else ""
+    has_debug_hidden_arg = bool(getattr(metadata, "debug_launch_hidden_arg", False))
+    debug_format = "K" if has_debug_hidden_arg else ""
+    debug_extracted_decl = "uint64_t _debugHiddenArg = 0;" if has_debug_hidden_arg else ""
+    debug_parse_arg = ", &_debugHiddenArg" if has_debug_hidden_arg else ""
+    debug_launch_arg_decl = ", uint64_t debugHiddenArg" if has_debug_hidden_arg else ""
     debug_struct_field = (
-        "void* debug_ctrl_ptr __attribute__((aligned(8)));"
-        if debug_launch_hidden_arg else ""
+        "void* debug_hidden_arg __attribute__((aligned(8)));"
+        if has_debug_hidden_arg else ""
     )
     debug_struct_value = (
-        "reinterpret_cast<void*>(debugCtrlPtr),"
-        if debug_launch_hidden_arg else ""
+        "reinterpret_cast<void*>(debugHiddenArg),"
+        if has_debug_hidden_arg else ""
     )
-    debug_call_arg = ", _debugCtrlPtr" if debug_launch_hidden_arg else ""
+    debug_call_arg = ", _debugHiddenArg" if has_debug_hidden_arg else ""
 
     args_format = ''.join([format_of(ty) for ty in signature.values()])
     format = "iiiKKOOOO" + args_format + debug_format

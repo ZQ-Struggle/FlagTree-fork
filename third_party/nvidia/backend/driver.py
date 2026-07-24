@@ -8,7 +8,6 @@ from pathlib import Path
 from triton import knobs
 from triton.runtime.build import compile_module_from_src
 from triton.runtime import _allocation
-from triton._components import finalize_prepared_launch, prepare_kernel_launch
 from triton.backends.compiler import GPUTarget
 from triton.backends.driver import GPUDriver
 
@@ -126,7 +125,7 @@ _BASE_ARGS_FORMAT = "iiiKKppOOOOOO"
 _BASE_ARGS_FORMAT_LEN = len(_BASE_ARGS_FORMAT)
 
 
-def make_launcher(constants, signature, tensordesc_meta, debug_enabled=False):
+def make_launcher(constants, signature, tensordesc_meta):
 
     def _expand_signature(signature):
         output = []
@@ -212,8 +211,7 @@ def make_launcher(constants, signature, tensordesc_meta, debug_enabled=False):
     signature = {i: s for i, s in enumerate(expand_signature)}
 
     args_format = ''.join([format_of(ty) for ty in signature.values()])
-    base_args_format = _BASE_ARGS_FORMAT + ("K" if debug_enabled else "")
-    format = base_args_format + args_format
+    format = _BASE_ARGS_FORMAT + args_format
 
     flat_signature = []
     for sig in signature.values():
@@ -261,14 +259,8 @@ def make_launcher(constants, signature, tensordesc_meta, debug_enabled=False):
         if ty in FLOAT_STORAGE_TYPE
     ]
     params = [f"&arg{i}" for i, ty in signature.items() if ty != "constexpr"]
-    if debug_enabled:
-        params.append("&debug_hidden_arg")
     params.append("&global_scratch")
     params.append("&profile_scratch")
-    debug_launch_decl = "  uint64_t _debug_hidden_arg = 0;\n" if debug_enabled else ""
-    debug_launch_signature = ", uint64_t debug_hidden_arg" if debug_enabled else ""
-    debug_launch_parse_arg = ", &_debug_hidden_arg" if debug_enabled else ""
-    debug_launch_call_arg = ", _debug_hidden_arg" if debug_enabled else ""
     src = f"""
 #include \"cuda.h\"
 #include <dlfcn.h>
@@ -322,7 +314,7 @@ static cuLaunchKernelEx_t getLaunchKernelExHandle() {{
   return cuLaunchKernelExHandle;
 }}
 
-static void _launch(int gridX, int gridY, int gridZ, int num_warps, int num_ctas, int launch_cooperative_grid, int launch_pdl, int clusterDimX, int clusterDimY, int clusterDimZ, int shared_memory, CUstream stream, CUfunction function{debug_launch_signature}, CUdeviceptr global_scratch, CUdeviceptr profile_scratch{', ' + arg_decls if len(arg_decls) > 0 else ''}) {{
+static void _launch(int gridX, int gridY, int gridZ, int num_warps, int num_ctas, int launch_cooperative_grid, int launch_pdl, int clusterDimX, int clusterDimY, int clusterDimZ, int shared_memory, CUstream stream, CUfunction function, CUdeviceptr global_scratch, CUdeviceptr profile_scratch{', ' + arg_decls if len(arg_decls) > 0 else ''}) {{
   (void)num_ctas;
   void *params[] = {{ {', '.join(params)} }};
   if (gridX*gridY*gridZ > 0) {{
@@ -517,11 +509,11 @@ static PyObject* launch(PyObject* self, PyObject* args) {{
   PyObject *launch_metadata = NULL;
   PyObject *global_scratch_obj = NULL;
   PyObject *profile_scratch_obj = NULL;
-{debug_launch_decl}  {newline.join([f"{_extracted_type(ty)} _arg{i};" for i, ty in signature.items()])}
+  {newline.join([f"{_extracted_type(ty)} _arg{i};" for i, ty in signature.items()])}
   if(!PyArg_ParseTuple(args, \"{format}\", &gridX, &gridY, &gridZ,
                                            &_stream, &_function, &launch_cooperative_grid, &launch_pdl, &global_scratch_obj, &profile_scratch_obj,
                                            &kernel_metadata, &launch_metadata,
-                                           &launch_enter_hook, &launch_exit_hook{debug_launch_parse_arg}{args_list})) {{
+                                           &launch_enter_hook, &launch_exit_hook{args_list})) {{
     return NULL;
   }}
 
@@ -562,7 +554,7 @@ static PyObject* launch(PyObject* self, PyObject* args) {{
   {newline.join(tma_decls)}
   {newline.join(float_storage_decls)}
   Py_BEGIN_ALLOW_THREADS;
-  _launch(gridX, gridY, gridZ, num_warps, num_ctas, launch_cooperative_grid, launch_pdl, clusterDimX, clusterDimY, clusterDimZ, shared_memory, (CUstream)_stream, (CUfunction)_function{debug_launch_call_arg}, global_scratch, profile_scratch{', ' + ', '.join(internal_args_list) if len(internal_args_list) > 0 else ''});
+  _launch(gridX, gridY, gridZ, num_warps, num_ctas, launch_cooperative_grid, launch_pdl, clusterDimX, clusterDimY, clusterDimZ, shared_memory, (CUstream)_stream, (CUfunction)_function, global_scratch, profile_scratch{', ' + ', '.join(internal_args_list) if len(internal_args_list) > 0 else ''});
   Py_END_ALLOW_THREADS;
   if (PyErr_Occurred()) {{
     return NULL;
@@ -662,7 +654,7 @@ def make_tensordesc_arg(arg, metadata):
     return [cu_tensor_map, *shape, *strides]
 
 
-def wrap_handle_tensordesc(launcher, signature, tensordesc_meta, base_args_format_len=_BASE_ARGS_FORMAT_LEN):
+def wrap_handle_tensordesc(launcher, signature, tensordesc_meta):
     has_tensor_desc_arg = any(isinstance(sig, str) and sig.startswith("tensordesc") for sig in signature.values())
     if not has_tensor_desc_arg:
         return launcher
@@ -674,9 +666,9 @@ def wrap_handle_tensordesc(launcher, signature, tensordesc_meta, base_args_forma
         tensordesc_meta = [None] * len(tensordesc_indices)
 
     def inner(*args):
-        final_args = list(args[:base_args_format_len])
+        final_args = list(args[:_BASE_ARGS_FORMAT_LEN])
         tensordesc_idx = 0
-        for i, arg in enumerate(args[base_args_format_len:]):
+        for i, arg in enumerate(args[_BASE_ARGS_FORMAT_LEN:]):
             if i in tensordesc_indices:
                 final_args.extend(make_tensordesc_arg(arg, tensordesc_meta[tensordesc_idx]))
                 tensordesc_idx += 1
@@ -695,13 +687,7 @@ class CudaLauncher(object):
         constants = {arg_idx(idx): value for idx, value in constants.items()}
         signature = {idx: value for idx, value in src.signature.items()}
         tensordesc_meta = getattr(metadata, "tensordesc_meta", None)
-        self.metadata = metadata
-        self.debug_enabled = bool(getattr(metadata, "debug_enabled", False))
-        self.debug_launch_hidden_arg = bool(getattr(metadata, "debug_launch_hidden_arg", False))
-        self.debug_ctrl_ptr = 0
-        self.manages_component_launch = True
-        self.base_args_format_len = _BASE_ARGS_FORMAT_LEN + (1 if self.debug_launch_hidden_arg else 0)
-        src = make_launcher(constants, signature, tensordesc_meta, debug_enabled=self.debug_launch_hidden_arg)
+        src = make_launcher(constants, signature, tensordesc_meta)
         mod = compile_module_from_src(
             src=src,
             name="__triton_launcher",
@@ -710,11 +696,8 @@ class CudaLauncher(object):
             libraries=libraries,
         )
 
-        cluster_dims = getattr(metadata, "cluster_dims", None)
-        self.num_ctas = (functools.reduce(operator.mul, cluster_dims, 1)
-                         if cluster_dims is not None else getattr(metadata, "num_ctas", 1))
-        self.launch = wrap_handle_tensordesc(
-            mod.launch, signature, tensordesc_meta, self.base_args_format_len)
+        self.num_ctas = functools.reduce(operator.mul, metadata.cluster_dims, 1)
+        self.launch = wrap_handle_tensordesc(mod.launch, signature, tensordesc_meta)
         self.global_scratch_size = metadata.global_scratch_size
         self.global_scratch_align = metadata.global_scratch_align
         self.profile_scratch_size = metadata.profile_scratch_size
@@ -749,31 +732,8 @@ class CudaLauncher(object):
         # end flagtree tle
         profile_scratch = allocate_scratch(self.profile_scratch_size, self.profile_scratch_align,
                                            _allocation._profile_allocator)
-        launch_fixed_args = args[:4]
-        kernel_args = args[4:]
-        launch_metadata = launch_fixed_args[1] if len(launch_fixed_args) > 1 else None
-        prepared_launch = None
-        try:
-            prepared_launch = prepare_kernel_launch(
-                self.metadata, stream, launch_metadata, kernel_args)
-            component_kernel_args = prepared_launch.kernel_args if prepared_launch is not None else ()
-            if self.debug_launch_hidden_arg and len(component_kernel_args) != 1:
-                raise RuntimeError("instrumented CUDA kernel requires exactly one component hidden argument")
-            if not self.debug_launch_hidden_arg and component_kernel_args:
-                raise RuntimeError("CUDA component prepared hidden arguments for a metadata-only kernel")
-        except BaseException as exc:
-            finalize_prepared_launch(prepared_launch, exc)
-            raise
-
-        launch_error = None
-        try:
-            self.launch(gridX, gridY, gridZ, stream, function, self.launch_cooperative_grid, self.launch_pdl,
-                        global_scratch, profile_scratch, *launch_fixed_args, *component_kernel_args, *kernel_args)
-        except BaseException as exc:
-            launch_error = exc
-            raise
-        finally:
-            finalize_prepared_launch(prepared_launch, launch_error)
+        self.launch(gridX, gridY, gridZ, stream, function, self.launch_cooperative_grid, self.launch_pdl,
+                    global_scratch, profile_scratch, *args)
 
 
 class CudaDriver(GPUDriver):

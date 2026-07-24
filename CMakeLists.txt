@@ -294,7 +294,6 @@ elseif(NOT FLAGTREE_BACKEND)
   add_subdirectory(lib)
 endif()
 
-
 # TODO: Figure out which target is sufficient to fix errors; triton is
 # apparently not enough. Currently set linking libstdc++fs for all targets
 # to support some old version GCC compilers like 8.3.0.
@@ -360,9 +359,9 @@ if(TRITON_BUILD_PYTHON_MODULE)
 
   if(TRITON_BUILD_PROTON)
     add_definitions(-D__PROTON__)
-    add_subdirectory(third_party/proton)
+    add_subdirectory(third_party/FlagTree_Tools/proton)
     list(APPEND TRITON_PLUGIN_NAMES "proton")
-    add_subdirectory(third_party/proton/Dialect)
+    add_subdirectory(third_party/FlagTree_Tools/proton/Dialect)
   endif()
 
   # The 3.2 DSA CMake tree defines the same TLE dialect/plugin targets as
@@ -570,7 +569,7 @@ if(NOT TRITON_BUILD_PYTHON_MODULE)
     add_subdirectory(third_party/${CODEGEN_BACKEND})
   endforeach()
   if(TRITON_BUILD_PROTON)
-    add_subdirectory(third_party/proton/Dialect)
+    add_subdirectory(third_party/FlagTree_Tools/proton/Dialect)
   endif()
 endif()
 

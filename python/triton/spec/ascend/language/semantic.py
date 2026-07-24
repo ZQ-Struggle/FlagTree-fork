@@ -1286,17 +1286,7 @@ class TritonSemantic(Generic[TensorTy]):
         self.builder.create_descriptor_scatter(desc.handle, value.handle, x_offsets.handle, y_offset)
         return self.tensor(None, tl.void)
 
-    def _annotate_debug_statement(self, op, source, statement_id):
-        if op is None or not hasattr(op, "set_attr"):
-            return op
-        if source:
-            op.set_attr("flagtree.debug.triton_statement", self.builder.get_string_attr(source))
-        if statement_id is not None:
-            op.set_attr("flagtree.debug.statement_id", self.builder.get_int32_attr(statement_id))
-        return op
-
-    def _store_block_pointer(self, ptr, val, mask, boundary_check, cache, eviction,
-                             _debug_statement_source=None, _debug_statement_id=None):
+    def _store_block_pointer(self, ptr, val, mask, boundary_check, cache, eviction):
         # Store by a block pointer: `pointer_type<block_type<>>`
         # Block pointers can not have the `mask` argument
         if mask is not None:
@@ -1321,12 +1311,10 @@ class TritonSemantic(Generic[TensorTy]):
         val = self.cast(val, elt_ty)
 
         # Build IR
-        op = self.builder.create_tensor_pointer_store(ptr.handle, val.handle, boundary_check, cache, eviction)
-        return self.tensor(self._annotate_debug_statement(
-            op, _debug_statement_source, _debug_statement_id), tl.void)
+        return self.tensor(
+            self.builder.create_tensor_pointer_store(ptr.handle, val.handle, boundary_check, cache, eviction), tl.void)
 
-    def _store_legacy(self, ptr, val, mask, boundary_check, cache, eviction,
-                      _debug_statement_source=None, _debug_statement_id=None):
+    def _store_legacy(self, ptr, val, mask, boundary_check, cache, eviction):
         # Store by a tensor of pointers or a pointer of scalar: `block_type<pointer_type<>>` or `pointer_type<>`
         if not ptr.type.scalar.is_ptr():
             raise ValueError(f"Unsupported ptr type {ptr.type.__repr__()} in `tl.store`")
@@ -1364,16 +1352,14 @@ class TritonSemantic(Generic[TensorTy]):
 
         # Build IR
         if mask is None:
-            op = self.builder.create_store(ptr.handle, val.handle, cache, eviction)
-        else:
-            if not mask.type.scalar.is_bool():
-                raise ValueError("Mask must have boolean scalar type")
-            op = self.builder.create_masked_store(ptr.handle, val.handle, mask.handle, cache, eviction)
-        return self.tensor(self._annotate_debug_statement(
-            op, _debug_statement_source, _debug_statement_id), tl.void)
+            return self.tensor(self.builder.create_store(ptr.handle, val.handle, cache, eviction), tl.void)
+        if not mask.type.scalar.is_bool():
+            raise ValueError("Mask must have boolean scalar type")
+        return self.tensor(self.builder.create_masked_store(ptr.handle, val.handle, mask.handle, cache, eviction),
+                           tl.void)
 
     def store(self, ptr: TensorTy, val: TensorTy, mask: Optional[TensorTy], boundary_check, cache_modifier: str,
-              eviction_policy: str, _debug_statement_source=None, _debug_statement_id=None) -> TensorTy:
+              eviction_policy: str) -> TensorTy:
         # Cache and eviction options
         cache = self._str_to_store_cache_modifier(cache_modifier)
         eviction = self._str_to_eviction_policy(eviction_policy)
@@ -1383,12 +1369,10 @@ class TritonSemantic(Generic[TensorTy]):
 
         if ptr.type.is_ptr() and ptr.type.element_ty.is_block():
             # Store by a block pointer: `pointer_type<block_type<>>`
-            return self._store_block_pointer(ptr, val, mask, boundary_check, cache, eviction,
-                                             _debug_statement_source, _debug_statement_id)
+            return self._store_block_pointer(ptr, val, mask, boundary_check, cache, eviction)
         else:
             # Store by a tensor of pointers or a pointer of scalar: `block_type<pointer_type<>>` or `pointer_type<>`
-            return self._store_legacy(ptr, val, mask, boundary_check, cache, eviction,
-                                      _debug_statement_source, _debug_statement_id)
+            return self._store_legacy(ptr, val, mask, boundary_check, cache, eviction)
 
 #########
 # atomic
@@ -1890,48 +1874,6 @@ class TritonSemantic(Generic[TensorTy]):
 
     def debug_barrier(self) -> TensorTy:
         return self.tensor(self.builder.create_barrier(), tl.void)
-
-    def _load_debugger_dialect(self) -> None:
-        from triton._components import load_component
-
-        component = load_component("debugger")
-        load_dialects = getattr(component, "load_dialects", None)
-        get_context = getattr(self.builder, "get_context", None)
-        if callable(load_dialects) and callable(get_context):
-            load_dialects(get_context())
-
-    def debug_collect_start(self, level: int, addr_level: Optional[int]) -> TensorTy:
-        if hasattr(self.builder, "create_void_op"):
-            self._load_debugger_dialect()
-            attributes = {"level": int(level)}
-            if addr_level is not None:
-                attributes["addr_level"] = int(addr_level)
-            handle = self.builder.create_void_op(
-                "flagtree_debug.collect_begin", attributes
-            )
-        elif hasattr(self.builder, "create_debug_collect_begin"):
-            handle = self.builder.create_debug_collect_begin(
-                level, -1 if addr_level is None else int(addr_level)
-            )
-        else:
-            raise RuntimeError(
-                "FlagTree debugger is not installed; install a compatible "
-                "flagtree-debugger wheel before compiling this kernel"
-            )
-        return self.tensor(handle, tl.void)
-
-    def debug_collect_end(self) -> TensorTy:
-        if hasattr(self.builder, "create_void_op"):
-            self._load_debugger_dialect()
-            handle = self.builder.create_void_op("flagtree_debug.collect_end", {})
-        elif hasattr(self.builder, "create_debug_collect_end"):
-            handle = self.builder.create_debug_collect_end()
-        else:
-            raise RuntimeError(
-                "FlagTree debugger is not installed; install a compatible "
-                "flagtree-debugger wheel before compiling this kernel"
-            )
-        return self.tensor(handle, tl.void)
 
     def device_print(self, prefix: str, args: List[TensorTy], hex: bool) -> TensorTy:
         # It makes sense visually for prefix to end in ": "; make it so.  Also,

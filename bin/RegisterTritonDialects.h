@@ -1,13 +1,9 @@
 #pragma once
-#if FLAGTREE_ENABLE_DEBUGGER
-#include "Debugger/Instrumentation/Passes.h"
-#include "Debugger/IR/Dialect.h"
-#include "Debugger/Metadata/Passes.h"
-#endif
 #include "amd/include/Dialect/TritonAMDGPU/IR/Dialect.h"
 #include "amd/include/TritonAMDGPUTransforms/Passes.h"
 #include "nvidia/include/Dialect/NVGPU/IR/Dialect.h"
 #include "nvidia/include/Dialect/NVWS/IR/Dialect.h"
+#ifdef __PROTON__
 #include "proton/Dialect/include/Conversion/ProtonGPUToLLVM/Passes.h"
 #include "proton/Dialect/include/Conversion/ProtonGPUToLLVM/ProtonAMDGPUToLLVM/Passes.h"
 #include "proton/Dialect/include/Conversion/ProtonGPUToLLVM/ProtonNvidiaGPUToLLVM/Passes.h"
@@ -15,6 +11,7 @@
 #include "proton/Dialect/include/Dialect/Proton/IR/Dialect.h"
 #include "proton/Dialect/include/Dialect/ProtonGPU/IR/Dialect.h"
 #include "proton/Dialect/include/Dialect/ProtonGPU/Transforms/Passes.h"
+#endif
 #ifdef __TLE__
 #include "third_party/tle/dialect/include/Transforms/Passes.h"
 #include "tle/dialect/include/IR/Dialect.h" // flagtree tle raw
@@ -57,18 +54,16 @@ void registerTestMembarPass();
 void registerTestAMDGPUMembarPass();
 void registerTestTritonAMDGPURangeAnalysis();
 void registerTestLoopPeelingPass();
+#ifdef __PROTON__
 namespace proton {
 void registerTestScopeIdAllocationPass();
 } // namespace proton
+#endif
 } // namespace test
 } // namespace mlir
 
 inline void registerTritonDialects(mlir::DialectRegistry &registry) {
   mlir::registerAllPasses();
-#if FLAGTREE_ENABLE_DEBUGGER
-  mlir::flagtree::debugger::registerFlagTreeDebuggerInstrumentationPasses();
-  mlir::flagtree::debugger::registerFlagTreeDebuggerMetadataPasses();
-#endif
   mlir::triton::registerTritonPasses();
   mlir::triton::gpu::registerTritonGPUPasses();
   mlir::triton::nvidia_gpu::registerTritonNvidiaGPUPasses();
@@ -125,6 +120,7 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
   mlir::registerNVHopperTransformsPasses();
 
   // Proton passes
+#ifdef __PROTON__
   mlir::test::proton::registerTestScopeIdAllocationPass();
   mlir::triton::proton::registerConvertProtonToProtonGPU();
   mlir::triton::proton::gpu::registerConvertProtonNvidiaGPUToLLVM();
@@ -133,6 +129,7 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
   mlir::triton::proton::gpu::registerAllocateProtonGlobalScratchBufferPass();
   mlir::triton::proton::gpu::registerScheduleBufferStorePass();
   mlir::triton::proton::gpu::registerAddSchedBarriersPass();
+#endif
 
   registry.insert<
       mlir::triton::TritonDialect, mlir::cf::ControlFlowDialect,
@@ -143,11 +140,11 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
       mlir::gpu::GPUDialect, mlir::LLVM::LLVMDialect, mlir::NVVM::NVVMDialect,
       mlir::triton::nvgpu::NVGPUDialect, mlir::triton::nvws::NVWSDialect,
       mlir::triton::amdgpu::TritonAMDGPUDialect,
+#ifdef __PROTON__
       mlir::triton::proton::ProtonDialect,
-      mlir::triton::proton::gpu::ProtonGPUDialect, mlir::ROCDL::ROCDLDialect,
-#if FLAGTREE_ENABLE_DEBUGGER
-      mlir::flagtree::debugger::FlagTreeDebugDialect,
+      mlir::triton::proton::gpu::ProtonGPUDialect,
 #endif
+      mlir::ROCDL::ROCDLDialect,
 #ifdef __TLE__
       mlir::triton::gluon::GluonDialect,
       mlir::triton::tle::TleDialect // flagtree tle raw

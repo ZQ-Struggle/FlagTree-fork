@@ -32,6 +32,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Dict, Optional, Tuple, Union
 
+from triton import _components
 from triton._C.libtriton import ir, passes, ascend
 from triton.backends.ascend.utils import (
     _check_bishengir_api_change,
@@ -165,9 +166,7 @@ def ttir_to_linalg(mod, metadata, opt, *, named_ops=False):
 
         pm.run(mod)
 
-        from triton._components import run_compiler_hook
-
-        run_compiler_hook("ttadapter.pre_serialize", mod, metadata)
+        _components.run_compiler_hook("ttadapter.pre_serialize", mod, metadata)
 
         if opt.debug:
             dump_manager = get_dump_manager(metadata["hash"])

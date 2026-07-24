@@ -305,10 +305,5 @@ def triton_key():
 
 
 def get_cache_key(src, backend, backend_options, env_vars):
-    from triton._components import component_cache_key
-
-    key = (
-        f"{triton_key()}-{src.hash()}-{backend.hash()}-{backend_options.hash()}-"
-        f"{str(sorted(env_vars.items()))}-{component_cache_key()}"
-    )
+    key = f"{triton_key()}-{src.hash()}-{backend.hash()}-{backend_options.hash()}-{str(sorted(env_vars.items()))}"
     return key

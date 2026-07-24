@@ -14,75 +14,17 @@ from typing import Callable, Generic, Iterable, Optional, TypeVar, Union, overlo
 
 from triton.tools.tensor_descriptor import TensorDescriptor
 from types import ModuleType
-from .. import knobs
+from .. import _components, knobs
 from .driver import driver
 from . import _async_compile
 from .._utils import find_paths_if, get_iterable_path, type_canonicalisation_dict, canonicalize_dtype
 from .cache import get_cache_key
 from triton._C.libtriton import get_cache_invalidating_env_vars
-from triton._components import finalize_prepared_launch, prepare_kernel_launch
 
 TRITON_MODULE = "triton.language"
 GLUON_MODULE = "triton.experimental.gluon.language"
 
 T = TypeVar("T")
-
-
-def _apply_compilation_instrumentation_mode(kwargs):
-    if "instrumentation_mode" in kwargs:
-        return
-    mode = getattr(knobs.compilation, "instrumentation_mode", "")
-    if mode:
-        kwargs["instrumentation_mode"] = str(mode)
-
-
-def _disable_component_hidden_args(kernel):
-    run = getattr(kernel, "run", None)
-    callback = getattr(run, "disable_component_hidden_args", None)
-    if callable(callback):
-        callback()
-
-
-def _prepare_component_launch(kernel, stream, launch_metadata, kernel_args):
-    records_per_instance = int(
-        getattr(kernel.metadata, "debug_records_per_instance", 0)
-    )
-    if (not getattr(kernel.metadata, "debug_launch_hidden_arg", False)
-            or records_per_instance <= 0):
-        _disable_component_hidden_args(kernel)
-
-    prepared = prepare_kernel_launch(
-        kernel.metadata, stream, launch_metadata, kernel_args
-    )
-    try:
-        hidden_args = prepared.kernel_args if prepared is not None else ()
-        setter = getattr(kernel.run, "set_component_hidden_args", None)
-        if hidden_args and not callable(setter):
-            raise RuntimeError("Ascend launcher does not support component hidden arguments")
-        if callable(setter):
-            setter(hidden_args)
-    except BaseException as exc:
-        finalize_prepared_launch(prepared, exc)
-        raise
-    return prepared
-
-
-def _finalize_component_launch(prepared, error):
-    if prepared is None:
-        return
-    final_error = error
-    if final_error is None:
-        try:
-            import torch_npu
-
-            torch_npu.npu.synchronize()
-        except BaseException as exc:
-            final_error = exc
-    try:
-        finalize_prepared_launch(prepared, final_error)
-    finally:
-        if error is None and final_error is not None:
-            raise final_error
 
 # -----------------------------------------------------------------------------
 # Dependencies Finder
@@ -766,7 +708,7 @@ class JITFunction(JITCallable, KernelInterface[T]):
 
     def run(self, *args, grid, warmup, **kwargs):
         kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
-        _apply_compilation_instrumentation_mode(kwargs)
+        _components.apply_compile_options(kwargs)
 
         # parse options
         device = driver.active.get_current_device()
@@ -812,20 +754,9 @@ class JITFunction(JITCallable, KernelInterface[T]):
             if hasattr(kernel, "result"):
                 kernel = kernel.result()
             # launch kernel
-            kernel_args = list(bound_args.values())
-            launch_metadata = kernel.launch_metadata(grid, stream, *kernel_args)
-            prepared_component_launch = _prepare_component_launch(
-                kernel, stream, launch_metadata, kernel_args
-            )
-            launch_error = None
-            try:
-                kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
-                           knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *kernel_args)
-            except BaseException as exc:
-                launch_error = exc
-                raise
-            finally:
-                _finalize_component_launch(prepared_component_launch, launch_error)
+            launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
+            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
+                       knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *bound_args.values())
         return kernel
 
     def repr(self, _):

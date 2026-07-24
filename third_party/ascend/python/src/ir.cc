@@ -1,5 +1,6 @@
 #include "./ir.h"
 
+#include <iterator>
 #include <optional>
 #include <pybind11/cast.h>
 #include <pybind11/functional.h>
@@ -374,8 +375,7 @@ void init_triton_ir(py::module &&m) {
         ::mlir::triton::instrument::TritonInstrumentDialect, math::MathDialect,
         arith::ArithDialect, scf::SCFDialect, ::mlir::gpu::GPUDialect,
         cf::ControlFlowDialect, LLVM::LLVMDialect, mlir::ub::UBDialect,
-        mlir::triton::gluon::GluonDialect, mlir::triton::tle::TleDialect
-        >();
+        mlir::triton::gluon::GluonDialect, mlir::triton::tle::TleDialect>();
     mlir::LLVM::registerInlinerInterface(registry);
     registerBuiltinDialectTranslation(registry);
     registerLLVMDialectTranslation(registry);
@@ -610,6 +610,10 @@ void init_triton_ir(py::module &&m) {
 
   py::class_<Operation, std::unique_ptr<Operation, py::nodelete>>(
       m, "operation", py::module_local())
+      .def("set_attr",
+           [](Operation &self, const std::string &name, Attribute attr) {
+             self.setAttr(name, attr);
+           })
       .def("get_name",
            [](Operation &self) {
              llvm::StringRef opName = self.getName().getStringRef();
@@ -792,7 +796,8 @@ void init_triton_ir(py::module &&m) {
       .def_property_readonly("type", &FuncOp::getFunctionType)
       .def("reset_type", &FuncOp::setType);
 
-  py::class_<mlir::OpBuilder>(m, "op_builder", py::dynamic_attr())
+  py::class_<mlir::OpBuilder>(m, "op_builder", py::module_local(),
+                              py::dynamic_attr())
       .def(py::init<MLIRContext *>());
 
   py::class_<OpBuilder::InsertPoint>(m, "InsertPoint", py::module_local());
@@ -836,10 +841,12 @@ void init_triton_ir(py::module &&m) {
            [](TritonOpBuilder &self) {
              return self.getBuilder().saveInsertionPoint();
            })
-      .def(
-          "get_context",
-          [](TritonOpBuilder &self) { return self.getBuilder().getContext(); },
-          ret::reference)
+      .def("get_last_op", [](TritonOpBuilder &self) -> Operation * {
+        auto *block = self.getBuilder().getInsertionBlock();
+        if (!block || self.getBuilder().getInsertionPoint() == block->begin())
+          throw std::runtime_error("builder has no previously inserted operation");
+        return &*std::prev(self.getBuilder().getInsertionPoint());
+      }, ret::reference)
       .def("restore_insertion_point",
            [](TritonOpBuilder &self, OpBuilder::InsertPoint pt) {
              self.restoreInsertionPoint(pt);
@@ -1863,31 +1870,6 @@ void init_triton_ir(py::module &&m) {
       // Force GPU barrier
       .def("create_barrier",
            [](TritonOpBuilder &self) { self.create<mlir::gpu::BarrierOp>(); })
-      .def("create_void_op",
-           [](TritonOpBuilder &self, const std::string &name,
-              const py::dict &attributes) {
-             OperationState state(self.getLastLoc(), name);
-             for (auto item : attributes) {
-               std::string key = py::cast<std::string>(item.first);
-               py::handle value = item.second;
-               Attribute attr;
-               if (py::isinstance<py::bool_>(value)) {
-                 attr = self.getBuilder().getBoolAttr(py::cast<bool>(value));
-               } else if (py::isinstance<py::int_>(value)) {
-                 attr = self.getBuilder().getI32IntegerAttr(
-                     py::cast<int32_t>(value));
-               } else if (py::isinstance<py::str>(value)) {
-                 attr = self.getBuilder().getStringAttr(
-                     py::cast<std::string>(value));
-               } else if (value.is_none()) {
-                 continue;
-               } else {
-                 throw py::type_error("unsupported dynamic operation attribute");
-               }
-               state.addAttribute(key, attr);
-             }
-             self.getBuilder().create(state);
-           })
       // Make a block pointer (tensor pointer in Triton IR)
       .def("create_make_block_ptr",
            [](TritonOpBuilder &self, Value &base, std::vector<Value> &shape,

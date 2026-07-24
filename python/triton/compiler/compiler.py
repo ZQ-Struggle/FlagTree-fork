@@ -5,8 +5,7 @@ from .._C.libtriton import get_cache_invalidating_env_vars, ir
 from ..backends import backends
 from ..backends.compiler import Language
 from ..backends.compiler import BaseBackend, GPUTarget
-from .. import __version__, knobs
-from .. import _components
+from .. import _components, __version__, knobs
 from ..runtime.autotuner import OutOfResources
 from ..runtime.cache import get_cache_manager, get_dump_manager, get_override_manager, get_cache_key
 from ..runtime.driver import driver
@@ -280,13 +279,6 @@ def compile(src, target=None, options=None, _env_vars=None):
         **options.__dict__,
         **env_vars,
     }
-    # Debug instrumentation consumes these fields during the TTIR stage.  They
-    # must come from GPUTarget: backend options do not define backend_name on
-    # every target (notably Ascend), and filling them after lowering is too late
-    # for both kernel metadata and transfer-backend selection.
-    metadata["backend_name"] = str(target.backend)
-    metadata["debug_backend_name"] = str(target.backend)
-    metadata["debug_target_name"] = str(target.arch)
     metadata["triton_version"] = __version__
     # run compilation pipeline  and populate metadata
     stages = dict()
@@ -328,10 +320,6 @@ def compile(src, target=None, options=None, _env_vars=None):
         timer.finished_ir_initialization()
     for ext, compile_ir in list(stages.items())[first_stage:]:
         next_module = compile_ir(module, metadata)
-        if ext == "ttir":
-            _components.run_compiler_hook(
-                "ttir.post_optimization", next_module, metadata
-            )
         ir_filename = f"{file_name}.{ext}"
         if fn_override_manager is None:
             # Users can override kernels at scale by setting `ir_override` in autotune config
@@ -341,6 +329,7 @@ def compile(src, target=None, options=None, _env_vars=None):
         elif full_name := fn_override_manager.get_file(ir_filename):
             print(f"\nOverriding kernel with file {full_name}")
             next_module = parse(full_name, ext, context)
+        _components.run_compiler_hook(ext, next_module, metadata)
         # If TRITON_STORE_BINARY_ONLY is 1, only store cubin/hsaco/json
         if (not store_only_binary) or (ext in ("cubin", "hsaco", "json")):
             metadata_group[ir_filename] = fn_cache_manager.put(next_module, ir_filename)
@@ -357,7 +346,6 @@ def compile(src, target=None, options=None, _env_vars=None):
         module = next_module
         if compilation_listener:
             timer.stage_finished(ext)
-    _components.update_compile_metadata(metadata)
     # write-back metadata
     metadata_group[metadata_filename] = fn_cache_manager.put(json.dumps(metadata, default=vars), metadata_filename,
                                                              binary=False)
@@ -500,22 +488,10 @@ class CompiledKernel:
         return self._run
 
     def launch_metadata(self, grid, stream, *args):
-        if (knobs.runtime.launch_enter_hook is None and
-                not _components.needs_launch_metadata(self.metadata)):
+        if knobs.runtime.launch_enter_hook is None:
             return None
         self._init_handles()
-        grid_size = len(grid)
-        normalized_grid = (
-            int(grid[0]),
-            int(grid[1]) if grid_size > 1 else 1,
-            int(grid[2]) if grid_size > 2 else 1,
-        )
-        ret = LazyDict({
-            "name": self.name,
-            "function": self.function,
-            "stream": stream,
-            "grid": normalized_grid,
-        })
+        ret = LazyDict({"name": self.name, "function": self.function, "stream": stream})
         if not isinstance(self.src, ASTSource) or self.src.fn.launch_metadata is None:
             return ret
         arg_dict = {name: arg for name, arg in zip(self.src.fn.arg_names, args)}
@@ -530,34 +506,7 @@ class CompiledKernel:
                 device = driver.active.get_current_device()
                 stream = driver.active.get_current_stream(device)
             launch_metadata = self.launch_metadata(grid, stream, *args)
-            prepared_launch = None
-            launcher_manages_components = bool(
-                getattr(self._run, "manages_component_launch", False)
-            )
-            if not launcher_manages_components:
-                try:
-                    prepared_launch = _components.prepare_kernel_launch(
-                        self.metadata, stream, launch_metadata, args
-                    )
-                    hidden_args = prepared_launch.kernel_args if prepared_launch else ()
-                    setter = getattr(self._run, "set_component_hidden_args", None)
-                    if hidden_args and not callable(setter):
-                        raise RuntimeError(
-                            "kernel launcher does not support component hidden arguments"
-                        )
-                    if callable(setter):
-                        setter(hidden_args)
-                except BaseException as exc:
-                    _components.finalize_prepared_launch(prepared_launch, exc)
-                    raise
-            launch_error = None
-            try:
-                self.run(grid[0], grid[1], grid[2], stream, self.function, self.packed_metadata, launch_metadata,
-                         knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *args)
-            except BaseException as exc:
-                launch_error = exc
-                raise
-            finally:
-                _components.finalize_prepared_launch(prepared_launch, launch_error)
+            self.run(grid[0], grid[1], grid[2], stream, self.function, self.packed_metadata, launch_metadata,
+                     knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *args)
 
         return runner
