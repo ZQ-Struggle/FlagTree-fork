@@ -16,7 +16,8 @@ import importlib
 import triton.language.extra.cann.extension as extension
 from triton.extension.buffer.language.builder import setup_unified_builder_with_buffer_builder
 
-from .. import _components, knobs, language
+# FlagPrism: mirror the core no-op gateway in the Ascend frontend.
+from .. import _flagprism, knobs, language
 from .._C.libtriton import ir, gluon_ir, buffer_ir
 from .._C.libtriton.ascend import ir as ascend_ir
 from ..language import constexpr, str_to_ty, tensor, tuple as tl_tuple
@@ -727,7 +728,8 @@ class CodeGenerator(ast.NodeVisitor):
                 values = _sanitize_value(self.visit(node.value))
         else:
             values = _sanitize_value(self.visit(node.value))
-        _components.annotate_statement("assignment", self, node, target, values)
+        # FlagPrism: expose the source assignment before symbol binding.
+        _flagprism.annotate_statement("assignment", self, node, target, values)
         self.assignTarget(target, values)
 
     def visit_AugAssign(self, node):
@@ -1542,8 +1544,8 @@ class CodeGenerator(ast.NodeVisitor):
     def visit_Expr(self, node):
         node.value._is_unused = True
         value = self.visit(node.value)
-        _components.annotate_statement("expression", self, node, None, value)
-        return value
+        # FlagPrism: retain the operation created by a void expression.
+        _flagprism.annotate_statement("expression", self, node, None, value)
 
     def visit_NoneType(self, node):
         return None

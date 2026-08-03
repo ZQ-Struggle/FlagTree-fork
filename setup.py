@@ -2,6 +2,7 @@ import os
 import platform
 import re
 import contextlib
+import runpy  # FlagPrism policy is loaded before it can be installed as a package.
 import shlex
 import shutil
 import subprocess
@@ -135,6 +136,31 @@ class BackendInstaller:
 # Taken from https://github.com/pytorch/pytorch/blob/master/tools/setup_helpers/env.py
 def check_env_flag(name: str, default: str = "") -> bool:
     return os.getenv(name, default).upper() in ["ON", "1", "YES", "TRUE", "Y"]
+
+
+# FlagPrism integration: FlagTree owns this bootstrap; wheel policy stays in the submodule.
+def _load_flagprism_build_config():
+    project_root = Path(__file__).resolve().parent
+    helper_path = project_root / "third_party" / "FlagPrism" / "python" / "flagprism_build.py"
+    if not helper_path.is_file():
+        options = (
+            "TRITON_BUILD_FLAGPRISM",
+            "TRITON_BUILD_DEVTOOLS",
+            "TRITON_BUILD_PROTON",
+        )
+        configured = [name for name in options if name in os.environ]
+        if not configured or any(check_env_flag(name) for name in configured):
+            raise RuntimeError(
+                "FlagPrism sources are missing. Run "
+                "`git submodule update --init --recursive`."
+            )
+        return None
+
+    policy = runpy.run_path(str(helper_path), run_name="_flagprism_build")
+    return policy["create_build_config"](project_root)
+
+
+FLAGPRISM = _load_flagprism_build_config()
 
 
 def get_build_type():
@@ -367,11 +393,14 @@ def download_and_copy(name, src_func, dst_path, variable, version, url_func):
     dst_path = os.path.join(base_dir, "third_party", "nvidia", "backend", dst_path)  # final binary path
     src_path = os.path.join(tmp_path, src_path)
     download = not os.path.exists(src_path)
-    if os.path.exists(dst_path) and system == "Linux" and shutil.which(dst_path) is not None:
-        curr_version = subprocess.check_output([dst_path, "--version"]).decode("utf-8").strip()
-        curr_version = re.search(r"V([.|\d]+)", curr_version)
-        assert curr_version is not None, f"No version information for {dst_path}"
-        download = download or curr_version.group(1) != version
+    # flagtree: check the cached binary version in ~/.triton, skip download if it matches
+    if os.path.exists(src_path) and system == "Linux" and shutil.which(src_path) is not None:
+        try:
+            cache_version = subprocess.check_output([src_path, "--version"]).decode("utf-8").strip()
+            cache_version = re.search(r"V([.|\d]+)", cache_version).group(1)
+            download = download or cache_version != version
+        except Exception:
+            download = True
     if download:
         print(f'{YELLOW}downloading and extracting {url} ... {NC}', file=sys.stderr, flush=True)
         file = tarfile.open(fileobj=open_url(url), mode="r|*")
@@ -397,17 +426,16 @@ class CMakeClean(clean):
 class CMakeBuildPy(build_py):
 
     def run(self) -> None:
+        # FlagPrism: sanitize a reused build_lib before native components are written.
+        if FLAGPRISM is not None:
+            FLAGPRISM.prepare_build_tree(self.build_lib)
         self.run_command('build_ext')
         helper.write_flagtree_backend_file()
-        super().run()
-
-        # CMake writes extensions directly into a reusable build_lib tree.
-        # Do not let artifacts from an older monolithic build leak into a
-        # newly built core-only wheel.
-        extension_dir = Path(self.build_lib) / "triton" / "_C"
-        if extension_dir.is_dir():
-            for artifact in extension_dir.glob("libproton*"):
-                artifact.unlink()
+        result = super().run()
+        # FlagPrism: remove stale source artifacts copied by setuptools afterward.
+        if FLAGPRISM is not None:
+            FLAGPRISM.finalize_build_tree(self.build_lib)
+        return result
 
 
 class CMakeExtension(Extension):
@@ -493,6 +521,9 @@ class CMakeBuild(build_ext):
             "-DTRITON_PLUGIN_DIRS=" + ';'.join([b.src_dir for b in backends if b.is_external]),
             "-DTRITON_WHEEL_DIR=" + wheeldir
         ]
+        # FlagPrism: forward the unified suite switch and wheel output paths.
+        if FLAGPRISM is not None:
+            cmake_args += FLAGPRISM.cmake_args(self.build_lib)
         cmake_args += helper.get_backend_cmake_args(build_ext=self)
         if lit_dir is not None:
             cmake_args.append("-DLLVM_EXTERNAL_LIT=" + lit_dir)
@@ -533,15 +564,16 @@ class CMakeBuild(build_ext):
                 "-DCMAKE_CXX_FLAGS=-fsanitize=address",
             ]
 
-        # environment variables we will pass through to cmake
+        # FlagPrism translates legacy component switches into its unified CMake option.
+        # Only unrelated core build switches still pass through directly.
         passthrough_args = [
-            "TRITON_BUILD_PROTON",
             "TRITON_BUILD_WITH_CCACHE",
             "TRITON_PARALLEL_LINK_JOBS",
         ]
         cmake_args += [f"-D{option}={os.getenv(option)}" for option in passthrough_args if option in os.environ]
 
-        if check_env_flag("TRITON_BUILD_PROTON", "OFF"):
+        # FlagPrism: resolve profiler-native dependencies only for the combined build.
+        if FLAGPRISM is not None and FLAGPRISM.enabled:
             cmake_args += self.get_proton_cmake_args()
 
         if is_offline_build():
@@ -652,6 +684,9 @@ else:
 
 def get_package_dirs():
     yield ("", "python")
+    # FlagPrism: map submodule sources directly into the parent wheel namespace.
+    if FLAGPRISM is not None:
+        yield from FLAGPRISM.package_dirs()
 
     for backend in backends:
         # we use symlinks for external plugins
@@ -675,7 +710,10 @@ def get_package_dirs():
 
 
 def get_packages():
-    yield from find_packages(where="python", include=["triton", "triton.*"])
+    # FlagPrism publishes its stable public API below the parent `flagtree` package.
+    yield from find_packages(where="python", include=["flagtree", "triton", "triton.*"])
+    if FLAGPRISM is not None:
+        yield from FLAGPRISM.packages()
 
     for backend in backends:
         yield f"triton.backends.{backend.name}"
@@ -697,6 +735,7 @@ def get_packages():
     elif helper.flagtree_backend == "mthreads":
         yield f"triton/language/extra/musa"
 
+    # FlagPrism package mappings above replace the legacy `triton.profiler` entry.
 
 
 def add_link_to_backends(external_only):
@@ -736,6 +775,7 @@ if helper.flagtree_backend == "xpu":
 # }
 
 
+# FlagPrism uses package_dir mappings, so the parent tree no longer creates a Proton symlink.
 def add_links(external_only):
     add_link_to_backends(external_only=external_only)
 
@@ -791,6 +831,10 @@ class plugin_sdist(sdist):
 
 def get_entry_points():
     entry_points = {}
+    # FlagPrism: publish Profiler CLIs only when the combined suite is enabled.
+    if FLAGPRISM is not None:
+        if console_scripts := FLAGPRISM.console_scripts():
+            entry_points["console_scripts"] = console_scripts
     entry_points["triton.backends"] = [f"{b.name} = triton.backends.{b.name}" for b in backends]
     return entry_points
 
@@ -873,10 +917,6 @@ setup(
     package_dir=dict(get_package_dirs()),
     entry_points=get_entry_points(),
     include_package_data=True,
-    exclude_package_data={
-        "": ["*.py[cod]", "__pycache__/*", "**/__pycache__/*"],
-        "triton": ["_C/libproton*"],
-    },
     ext_modules=[CMakeExtension("triton", "triton/_C/")],
     cmdclass={
         "bdist_wheel": plugin_bdist_wheel,

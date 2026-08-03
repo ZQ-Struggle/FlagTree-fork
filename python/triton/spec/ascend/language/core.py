@@ -2864,20 +2864,22 @@ def debug_barrier(_semantic=None):
     return _semantic.debug_barrier()
 
 
+# FlagPrism: keep public DSL markers thin; implementation stays in the
+# optional component behind triton._flagprism.
 @builtin
 def debug_collect_start(level=1, addr_level=None, _semantic=None):
-    '''Begin a FlagTree debug collect region.'''
-    from triton import _components
+    """Begin a FlagTree debug collect region."""
+    from triton import _flagprism
 
-    return _components.debug_collect_start(_semantic, level, addr_level)
+    return _flagprism.debug_collect_start(_semantic, level, addr_level)
 
 
 @builtin
 def debug_collect_end(_semantic=None):
-    '''End a FlagTree debug collect region.'''
-    from triton import _components
+    """End a FlagTree debug collect region."""
+    from triton import _flagprism
 
-    return _components.debug_collect_end(_semantic)
+    return _flagprism.debug_collect_end(_semantic)
 
 
 @builtin

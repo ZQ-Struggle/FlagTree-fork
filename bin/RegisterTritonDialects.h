@@ -4,13 +4,8 @@
 #include "nvidia/include/Dialect/NVGPU/IR/Dialect.h"
 #include "nvidia/include/Dialect/NVWS/IR/Dialect.h"
 #ifdef __PROTON__
-#include "proton/Dialect/include/Conversion/ProtonGPUToLLVM/Passes.h"
-#include "proton/Dialect/include/Conversion/ProtonGPUToLLVM/ProtonAMDGPUToLLVM/Passes.h"
-#include "proton/Dialect/include/Conversion/ProtonGPUToLLVM/ProtonNvidiaGPUToLLVM/Passes.h"
-#include "proton/Dialect/include/Conversion/ProtonToProtonGPU/Passes.h"
-#include "proton/Dialect/include/Dialect/Proton/IR/Dialect.h"
-#include "proton/Dialect/include/Dialect/ProtonGPU/IR/Dialect.h"
-#include "proton/Dialect/include/Dialect/ProtonGPU/Transforms/Passes.h"
+// FlagPrism: Proton owns its dialect and production-pass registry.
+#include "FlagPrism/proton/Dialect/include/Integration/Registration.h"
 #endif
 #ifdef __TLE__
 #include "third_party/tle/dialect/include/Transforms/Passes.h"
@@ -54,11 +49,7 @@ void registerTestMembarPass();
 void registerTestAMDGPUMembarPass();
 void registerTestTritonAMDGPURangeAnalysis();
 void registerTestLoopPeelingPass();
-#ifdef __PROTON__
-namespace proton {
-void registerTestScopeIdAllocationPass();
-} // namespace proton
-#endif
+// FlagPrism declares the migrated Proton test pass in its integration header.
 } // namespace test
 } // namespace mlir
 
@@ -119,16 +110,10 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
   // NVGPU transform passes
   mlir::registerNVHopperTransformsPasses();
 
-  // Proton passes
+  // FlagPrism owns Proton's production and legacy lit-test registration.
 #ifdef __PROTON__
-  mlir::test::proton::registerTestScopeIdAllocationPass();
-  mlir::triton::proton::registerConvertProtonToProtonGPU();
-  mlir::triton::proton::gpu::registerConvertProtonNvidiaGPUToLLVM();
-  mlir::triton::proton::gpu::registerConvertProtonAMDGPUToLLVM();
-  mlir::triton::proton::gpu::registerAllocateProtonSharedMemoryPass();
-  mlir::triton::proton::gpu::registerAllocateProtonGlobalScratchBufferPass();
-  mlir::triton::proton::gpu::registerScheduleBufferStorePass();
-  mlir::triton::proton::gpu::registerAddSchedBarriersPass();
+  mlir::triton::proton::registerFlagTreeProtonTestPasses();
+  mlir::triton::proton::registerFlagTreeProtonPassesAndDialects(registry);
 #endif
 
   registry.insert<
@@ -140,10 +125,7 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
       mlir::gpu::GPUDialect, mlir::LLVM::LLVMDialect, mlir::NVVM::NVVMDialect,
       mlir::triton::nvgpu::NVGPUDialect, mlir::triton::nvws::NVWSDialect,
       mlir::triton::amdgpu::TritonAMDGPUDialect,
-#ifdef __PROTON__
-      mlir::triton::proton::ProtonDialect,
-      mlir::triton::proton::gpu::ProtonGPUDialect,
-#endif
+      // FlagPrism registers Proton dialects through the centralized call above.
       mlir::ROCDL::ROCDLDialect,
 #ifdef __TLE__
       mlir::triton::gluon::GluonDialect,

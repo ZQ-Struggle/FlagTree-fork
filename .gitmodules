@@ -1,3 +1,4 @@
-[submodule "third_party/FlagTree_DevTools"]
-	path = third_party/FlagTree_DevTools
+# FlagPrism: bundled Debugger and Profiler source boundary.
+[submodule "third_party/FlagPrism"]
+	path = third_party/FlagPrism
 	url = https://github.com/ZQ-Struggle/FlagTree_DevTools.git

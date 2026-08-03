@@ -1,3 +1,5 @@
+# Proton C++ tests moved to FlagPrism; retain the legacy target for audit only.
+#[[
 add_mlir_library(TritonTestProton
   TestScopeIdAllocation.cpp
 
@@ -5,3 +7,4 @@ add_mlir_library(TritonTestProton
   MLIRPass
   ${triton_libs}
 )
+]]

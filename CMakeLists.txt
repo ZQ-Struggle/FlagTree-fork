@@ -99,12 +99,30 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # Options
 option(TRITON_BUILD_PYTHON_MODULE "Build Python Triton bindings" OFF)
+# Standalone Proton configuration was removed; FlagPrism builds Proton and Debugger together.
 if(FLAGTREE_BACKEND)
+  #[[
   option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" OFF)
+  ]]
   option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" OFF)
 else()
-  option(TRITON_BUILD_PROTON "Build the legacy in-tree Proton runtime" OFF)
+  #[[
+  option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" ON)
+  ]]
   option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" ON)
+endif()
+# FlagPrism integration: load the combined Debugger and Profiler build policy.
+set(FLAGPRISM_CMAKE_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/FlagPrism/cmake/FlagPrism.cmake")
+if(EXISTS "${FLAGPRISM_CMAKE_FILE}")
+  include("${FLAGPRISM_CMAKE_FILE}")
+elseif(TRITON_BUILD_FLAGPRISM OR TRITON_BUILD_PROTON OR
+       TRITON_BUILD_DEVTOOLS)
+  message(FATAL_ERROR
+    "FlagPrism source is missing. Run `git submodule update --init --recursive`.")
+elseif(NOT TARGET TritonTestProton)
+  # Keep core-only builds compatible with the baseline tool link list.
+  add_library(TritonTestProton INTERFACE)
 endif()
 option(TRITON_BUILD_WITH_CCACHE "Build with ccache (if available)" ON)
 set(TRITON_CODEGEN_BACKENDS "" CACHE STRING "Enable different codegen backends")
@@ -258,9 +276,7 @@ if(NOT MSVC)
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-attributes")
     endif()
   else()
-    # Optional native components resolve the MLIR/Triton ABI from libtriton.
-    # Keep those symbols visible for the component extension boundary.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wno-covered-switch-default")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wno-covered-switch-default -fvisibility=hidden")
   endif()
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4244 /wd4624 /wd4715 /wd4530")
@@ -336,6 +352,11 @@ if(TRITON_BUILD_PYTHON_MODULE)
     add_subdirectory(third_party/flir)
   endif()
 
+  # FlagPrism integration: add the bundled tools before TRITON_LIBS is read.
+  if(COMMAND flagprism_add_components)
+    flagprism_add_components()
+  endif()
+
   if (DEFINED TRITON_PLUGIN_DIRS)
     foreach(PLUGIN_DIR ${TRITON_PLUGIN_DIRS})
       # Read the plugin name under dir/backend/name.conf
@@ -357,12 +378,16 @@ if(TRITON_BUILD_PYTHON_MODULE)
     add_subdirectory(third_party/${CODEGEN_BACKEND})
   endforeach()
 
+  # Standalone Proton wiring was removed; FlagPrism registers these targets.
+  #[[
   if(TRITON_BUILD_PROTON)
     add_definitions(-D__PROTON__)
-    add_subdirectory(third_party/FlagTree_DevTools/proton)
-    list(APPEND TRITON_PLUGIN_NAMES "proton")
-    add_subdirectory(third_party/FlagTree_DevTools/proton/Dialect)
+    add_subdirectory(third_party/proton)
   endif()
+  # We always build proton dialect
+  list(APPEND TRITON_PLUGIN_NAMES "proton")
+  add_subdirectory(third_party/proton/Dialect)
+  ]]
 
   # The 3.2 DSA CMake tree defines the same TLE dialect/plugin targets as
   # third_party/tle on 3.5, so do not add it as a second CMake subdirectory.
@@ -549,6 +574,10 @@ if(TRITON_BUILD_PYTHON_MODULE)
 
 endif()
 
+if (UNIX AND NOT APPLE)
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--exclude-libs,ALL")
+endif()
+
 if(TRITON_BUILD_PYTHON_MODULE AND NOT WIN32)
   set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
 
@@ -565,12 +594,17 @@ if(NOT TRITON_BUILD_PYTHON_MODULE)
   if(FLAGTREE_BACKEND STREQUAL "ascend")
     add_subdirectory(third_party/flir)
   endif()
+  # FlagPrism integration: add the targets required by non-Python tools.
+  if(COMMAND flagprism_add_components)
+    flagprism_add_components()
+  endif()
   foreach(CODEGEN_BACKEND ${TRITON_CODEGEN_BACKENDS})
     add_subdirectory(third_party/${CODEGEN_BACKEND})
   endforeach()
-  if(TRITON_BUILD_PROTON)
-    add_subdirectory(third_party/FlagTree_DevTools/proton/Dialect)
-  endif()
+  # Standalone Proton dialect wiring was removed; FlagPrism owns this target.
+  #[[
+  add_subdirectory(third_party/proton/Dialect)
+  ]]
 endif()
 
 find_package(Threads REQUIRED)

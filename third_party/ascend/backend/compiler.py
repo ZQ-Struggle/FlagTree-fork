@@ -32,7 +32,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Dict, Optional, Tuple, Union
 
-from triton import _components
+# FlagPrism: use the core no-op gateway at the Ascend serialization boundary.
+from triton import _flagprism
 from triton._C.libtriton import ir, passes, ascend
 from triton.backends.ascend.utils import (
     _check_bishengir_api_change,
@@ -166,7 +167,9 @@ def ttir_to_linalg(mod, metadata, opt, *, named_ops=False):
 
         pm.run(mod)
 
-        _components.run_compiler_hook("ttadapter.pre_serialize", mod, metadata)
+        # FlagPrism: this is the last structured IR point before the
+        # Ascend adapter serializes the module.
+        _flagprism.run_compiler_hook("ttadapter.pre_serialize", mod, metadata)
 
         if opt.debug:
             dump_manager = get_dump_manager(metadata["hash"])
@@ -778,6 +781,7 @@ def get_libdevice():
 @dataclass(frozen=True)
 class NPUOptions:
     debug: bool = False
+    # FlagPrism: instrumentation mode participates in the option hash.
     instrumentation_mode: str = ""
     sanitize_overflow: bool = True
     llvm_version: int = 15

@@ -1,8 +1,4 @@
 get_property(triton_libs GLOBAL PROPERTY TRITON_LIBS)
-set(TRITON_PROTON_TEST_LIBS)
-if(TRITON_BUILD_PROTON)
-  list(APPEND TRITON_PROTON_TEST_LIBS TritonTestProton)
-endif()
 
 add_llvm_executable(triton-opt triton-opt.cpp PARTIAL_SOURCES_INTENDED)
 
@@ -14,7 +10,7 @@ target_link_libraries(triton-opt PRIVATE
   TritonTestAnalysis
   TritonTestDialect
   TritonAMDGPUTestAnalysis
-  ${TRITON_PROTON_TEST_LIBS}
+  TritonTestProton
   # MLIR core
   MLIROptLib
   MLIRPass
@@ -35,7 +31,7 @@ target_link_libraries(triton-reduce PRIVATE
   TritonTestAnalysis
   TritonTestDialect
   TritonAMDGPUTestAnalysis
-  ${TRITON_PROTON_TEST_LIBS}
+  TritonTestProton
   # MLIR core
   MLIRReduceLib
   MLIRPass
@@ -55,7 +51,7 @@ target_link_libraries(triton-lsp PRIVATE
   TritonTestAnalysis
   TritonTestDialect
   TritonAMDGPUTestAnalysis
-  ${TRITON_PROTON_TEST_LIBS}
+  TritonTestProton
   # MLIR core
   MLIRLspServerLib
   MLIRPass
@@ -92,7 +88,7 @@ target_link_libraries(triton-tensor-layout PRIVATE
   ${triton_libs}
   TritonTestAnalysis
   TritonTestDialect
-  ${TRITON_PROTON_TEST_LIBS}
+  TritonTestProton
   TritonAMDGPUTestAnalysis
   MLIRRegisterAllDialects
   MLIRRegisterAllPasses

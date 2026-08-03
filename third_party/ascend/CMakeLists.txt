@@ -39,7 +39,7 @@ add_subdirectory(bin)
 
 add_triton_library(Registrar Registrar.cc)
 
-if(LLVM_VERSION_MAJOR EQUAL 21)
+if(LLVM_MAJOR_VERSION_21_COMPATIBLE)
   set(_MLIRMeshDialect_LIB MLIRMeshDialect)
 else()
   set(_MLIRMeshDialect_LIB "")

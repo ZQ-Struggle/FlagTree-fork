@@ -73,8 +73,11 @@ test-interpret: all
 
 .PHONY: test-proton
 test-proton: all
-	$(PYTEST) -s -n 8 third_party/FlagTree_DevTools/proton/test --ignore=third_party/FlagTree_DevTools/proton/test/test_override.py
-	$(PYTEST) -s third_party/FlagTree_DevTools/proton/test/test_override.py
+	# Proton tests moved to the FlagPrism submodule; legacy commands are retained for audit.
+	# $(PYTEST) -s -n 8 third_party/proton/test --ignore=third_party/proton/test/test_override.py
+	# $(PYTEST) -s third_party/proton/test/test_override.py
+	$(PYTEST) -s -n 8 third_party/FlagPrism/proton/test --ignore=third_party/FlagPrism/proton/test/test_override.py
+	$(PYTEST) -s third_party/FlagPrism/proton/test/test_override.py
 
 .PHONY: test-python
 test-python: test-unit test-regression test-interpret test-proton

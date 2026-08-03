@@ -19,7 +19,8 @@ def parse_profile(profile_path, useful_op_regex):
     """
     construct a PerfRecord from a (proton) profile path and a regex for useful operations
     """
-    from triton.profiler import viewer
+    # FlagPrism: use the bundled Profiler's stable public namespace.
+    from flagtree.profiler import viewer
     gf, _, _, _ = viewer.read(profile_path)
     # aggregate "useful" flops + bytes
     useful = gf.filter(f"MATCH ('*', c) WHERE c.'name' =~ '{useful_op_regex}' AND c IS LEAF").dataframe

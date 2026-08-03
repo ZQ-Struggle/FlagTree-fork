@@ -77,7 +77,8 @@ def test_op(n_tokens_pad, n_tokens_raw, n_expts_tot, n_expts_act, sm_first, use_
 
 
 def bench_routing():
-    import triton.profiler as proton
+    # FlagPrism: use the bundled Profiler's stable public namespace.
+    import flagtree.profiler as proton
     n_tokens = 8192
     n_expts_tot, n_expts_act = 128, 4
     tri_logits = init_data(n_tokens, n_expts_tot)

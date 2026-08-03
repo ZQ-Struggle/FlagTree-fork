@@ -14,7 +14,8 @@ from typing import Callable, Generic, Iterable, Optional, TypeVar, Union, overlo
 
 from triton.tools.tensor_descriptor import TensorDescriptor
 from types import ModuleType
-from .. import _components, knobs
+# FlagPrism: mirror the core no-op gateway in the Ascend JIT path.
+from .. import _flagprism, knobs
 from .driver import driver
 from . import _async_compile
 from .._utils import find_paths_if, get_iterable_path, type_canonicalisation_dict, canonicalize_dtype
@@ -708,7 +709,8 @@ class JITFunction(JITCallable, KernelInterface[T]):
 
     def run(self, *args, grid, warmup, **kwargs):
         kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
-        _components.apply_compile_options(kwargs)
+        # FlagPrism: options must affect specialization and cache keys.
+        _flagprism.apply_compile_options(kwargs)
 
         # parse options
         device = driver.active.get_current_device()

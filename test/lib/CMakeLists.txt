@@ -1,6 +1,7 @@
 add_subdirectory(Analysis)
 add_subdirectory(Dialect)
 add_subdirectory(Instrumentation)
-if(TRITON_BUILD_PROTON)
-  add_subdirectory(Proton)
-endif()
+# Proton tests moved to FlagPrism; the legacy parent target is intentionally disabled.
+#[[
+add_subdirectory(Proton)
+]]

@@ -72,6 +72,7 @@ from .core import (
     constexpr,
     constexpr_type,
     debug_barrier,
+    # FlagPrism: explicit source-level capture controls.
     debug_collect_end,
     debug_collect_start,
     device_assert,
@@ -193,6 +194,7 @@ __all__ = [
     "cumprod",
     "cumsum",
     "debug_barrier",
+    # FlagPrism: public DSL names for optional debugger regions.
     "debug_collect_end",
     "debug_collect_start",
     "device_assert",

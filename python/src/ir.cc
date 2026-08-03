@@ -1,6 +1,5 @@
 #include "ir.h"
 
-#include <iterator>
 #include <optional>
 #include <pybind11/cast.h>
 #include <pybind11/functional.h>
@@ -343,7 +342,7 @@ void init_triton_ir(py::module &&m) {
       .value("FP16", ScaleDotElemType::FP16)
       .export_values();
 
-  py::class_<MLIRContext>(m, "context")
+  py::class_<MLIRContext>(m, "context", py::module_local())
       .def(py::init<>())
       .def("printOpOnDiagnostic",
            [](MLIRContext &self, bool v) { self.printOpOnDiagnostic(v); })
@@ -529,7 +528,7 @@ void init_triton_ir(py::module &&m) {
   py::class_<UnitAttr, Attribute>(m, "unit_attr", py::module_local());
 
   // Ops
-  py::class_<OpState>(m, "OpState")
+  py::class_<OpState>(m, "OpState", py::module_local())
       .def("set_attr",
            [](OpState &self, std::string &name, Attribute &attr) -> void {
              self->setAttr(name, attr);
@@ -601,10 +600,6 @@ void init_triton_ir(py::module &&m) {
 
   py::class_<Operation, std::unique_ptr<Operation, py::nodelete>>(
       m, "operation", py::module_local())
-      .def("set_attr",
-           [](Operation &self, const std::string &name, Attribute attr) {
-             self.setAttr(name, attr);
-           })
       .def("get_name",
            [](Operation &self) {
              llvm::StringRef opName = self.getName().getStringRef();
@@ -641,7 +636,7 @@ void init_triton_ir(py::module &&m) {
 
   // dynamic_attr is used to transfer ownership of the MLIR context to the
   // module
-  py::class_<ModuleOp, OpState>(m, "module",
+  py::class_<ModuleOp, OpState>(m, "module", py::module_local(),
                                 py::dynamic_attr())
       .def("dump", &ModuleOp::dump)
       .def("str",
@@ -794,7 +789,7 @@ void init_triton_ir(py::module &&m) {
   py::class_<OpBuilder::InsertPoint>(m, "InsertPoint", py::module_local());
 
   static py::class_<TritonOpBuilder> builderClass(
-      m, "builder", py::dynamic_attr());
+      m, "builder", py::module_local(), py::dynamic_attr());
   builderClassPtr = &builderClass;
   builderClass.def(py::init<MLIRContext *>())
       .def("get_op_builder", &TritonOpBuilder::getBuilder, ret::reference)
@@ -826,12 +821,6 @@ void init_triton_ir(py::module &&m) {
            [](TritonOpBuilder &self) {
              return self.getBuilder().saveInsertionPoint();
            })
-      .def("get_last_op", [](TritonOpBuilder &self) -> Operation * {
-        auto *block = self.getBuilder().getInsertionBlock();
-        if (!block || self.getBuilder().getInsertionPoint() == block->begin())
-          throw std::runtime_error("builder has no previously inserted operation");
-        return &*std::prev(self.getBuilder().getInsertionPoint());
-      }, ret::reference)
       .def("restore_insertion_point",
            [](TritonOpBuilder &self, OpBuilder::InsertPoint pt) {
              self.restoreInsertionPoint(pt);
@@ -1873,7 +1862,7 @@ void init_triton_ir(py::module &&m) {
 
       ;
 
-  py::class_<PassManager>(m, "pass_manager")
+  py::class_<PassManager>(m, "pass_manager", py::module_local())
       .def(py::init<MLIRContext *>())
       .def("enable_debug",
            [](PassManager &self) -> bool {
