@@ -24,8 +24,8 @@
 #include "nvidia/include/Dialect/NVGPU/IR/Dialect.h"
 #include "nvidia/include/Dialect/NVWS/IR/Dialect.h"
 #ifdef __PROTON__
-// FlagPrism: Proton owns its dialect and production-pass registry.
-#include "FlagPrism/proton/Dialect/include/Integration/Registration.h"
+// FlagPrism Profiler owns the internal Proton dialect and pass registry.
+#include "FlagPrism/Profiler/Dialect/include/Integration/Registration.h"
 #endif
 #include "triton/Dialect/Gluon/Transforms/Passes.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
@@ -65,7 +65,7 @@ void registerTestMembarPass();
 void registerTestAMDGPUMembarPass();
 void registerTestTritonAMDGPURangeAnalysis();
 void registerTestLoopPeelingPass();
-// FlagPrism declares the migrated Proton test pass in its integration header.
+// FlagPrism Profiler declares the migrated internal test pass above.
 } // namespace test
 } // namespace mlir
 
@@ -137,7 +137,7 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
   // NVGPU transform passes
   mlir::registerNVHopperTransformsPasses();
 
-  // FlagPrism owns Proton's production and legacy lit-test registration.
+  // FlagPrism Profiler owns internal Proton production and lit-test registration.
 #ifdef __PROTON__
   mlir::triton::proton::registerFlagTreeProtonTestPasses();
   mlir::triton::proton::registerFlagTreeProtonPassesAndDialects(registry);
@@ -156,7 +156,7 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
       mlir::LLVM::LLVMDialect, mlir::NVVM::NVVMDialect,
       mlir::triton::nvgpu::NVGPUDialect, mlir::triton::nvws::NVWSDialect,
       mlir::triton::amdgpu::TritonAMDGPUDialect,
-      // FlagPrism registers Proton dialects through the centralized call above.
+      // FlagPrism registers the Profiler's internal dialects above.
       mlir::ROCDL::ROCDLDialect,
       mlir::triton::gluon::GluonDialect,
       mlir::triton::ascend::TritonAscendDialect, mlir::hivm::HIVMDialect,

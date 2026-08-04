@@ -89,7 +89,7 @@ def bench_routing():
     proton.finalize()
     try:
         import os
-        os.system("proton-viewer -m time/ms routing.hatchet")
+        os.system("flagtree-profiler-viewer -m time/ms routing.hatchet")
     except Exception:
         pass
 

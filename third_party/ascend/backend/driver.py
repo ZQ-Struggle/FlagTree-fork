@@ -167,9 +167,10 @@ class NPULauncher(object):
                 return
             debug_enabled = bool(getattr(self.metadata, "debug_enabled", False))
             if debug_enabled:
-                # FlagPrism: the core gateway owns optional-component
-                # loading; the backend only provides Ascend launch state.
-                with _flagprism.ascend_debugger_launch_context(
+                # FlagPrism: use the backend-neutral launch gateway; this
+                # backend only supplies its name and launch state.
+                with _flagprism.debugger_launch_context(
+                    "ascend",
                     self.metadata,
                     args[:3],
                     args[3],

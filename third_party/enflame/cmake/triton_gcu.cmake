@@ -24,7 +24,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/include) # Tablegen'd files
 # 使用本地的 triton 文件，不需要下载（使用根目录的 triton）
 set(third_party_triton_${arch}_fetch_src "${CMAKE_SOURCE_DIR}")
 set(third_party_triton_${arch}_fetch_bin "${CMAKE_CURRENT_BINARY_DIR}/third_party_triton_${arch}_bin")
-# Legacy Proton source glob retained for audit; FlagPrism owns these sources.
+# Legacy Proton source glob retained for audit; FlagPrism Profiler owns these sources.
 #[[
 file(GLOB_RECURSE third_party_triton_${arch}_src "${CMAKE_SOURCE_DIR}/include/*" "${CMAKE_SOURCE_DIR}/lib/*" "${CMAKE_SOURCE_DIR}/third_party/f2reduce/*" "${CMAKE_SOURCE_DIR}/third_party/proton/*")
 ]]
@@ -33,18 +33,18 @@ file(GLOB_RECURSE third_party_triton_${arch}_src
   "${CMAKE_SOURCE_DIR}/lib/*"
   "${CMAKE_SOURCE_DIR}/third_party/f2reduce/*"
 )
-if(TRITON_BUILD_PROTON)
-  # FlagPrism: rebuild the nested compiler when Proton sources change.
-  file(GLOB_RECURSE _flagtree_proton_src
-    "${CMAKE_SOURCE_DIR}/third_party/FlagPrism/proton/*")
-  list(APPEND third_party_triton_${arch}_src ${_flagtree_proton_src})
+if(TRITON_BUILD_FLAGPRISM)
+  # FlagPrism: rebuild the nested compiler when Profiler sources change.
+  file(GLOB_RECURSE _flagtree_profiler_src
+    "${CMAKE_SOURCE_DIR}/third_party/FlagPrism/Profiler/*")
+  list(APPEND third_party_triton_${arch}_src ${_flagtree_profiler_src})
 endif()
 
 include(${CMAKE_CURRENT_LIST_DIR}/triton_${arch}.cmake)
-if(TRITON_BUILD_PROTON)
+if(TRITON_BUILD_FLAGPRISM)
   include(
-    "${CMAKE_SOURCE_DIR}/third_party/FlagPrism/proton/cmake/ProtonDialectObjects.cmake")
-  flagtree_append_proton_dialect_objects(
+    "${CMAKE_SOURCE_DIR}/third_party/FlagPrism/Profiler/cmake/ProtonDialectObjects.cmake")
+  flagtree_append_profiler_dialect_objects(
     triton_${arch}_objs "${third_party_triton_${arch}_fetch_bin}")
 endif()
 

@@ -1,4 +1,5 @@
-if(TRITON_BUILD_PROTON)
+# FlagPrism supplies ProtonIR when the bundled tools are enabled.
+if(TRITON_BUILD_FLAGPRISM)
   set(_ProtonIRLib ProtonIR)
 endif()
 

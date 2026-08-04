@@ -1,1 +1,1 @@
-// FlagPrism: implementation moved to proton/Dialect/test in the submodule.
+// FlagPrism: implementation moved to Profiler/Dialect/test in the submodule.

@@ -12,8 +12,9 @@ from types import ModuleType
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, Iterable, List
 import importlib
 
+from .. import knobs, language
 # FlagPrism: use the core no-op gateway; optional tools remain lazily loaded.
-from .. import _flagprism, knobs, language
+from .. import _flagprism
 from .._C.libtriton import ir, gluon_ir
 from ..language import constexpr, str_to_ty, tensor, tuple as tl_tuple
 from ..language.core import _unwrap_if_constexpr, base_value, base_type
@@ -746,8 +747,8 @@ class CodeGenerator(ast.NodeVisitor):
                 values = _sanitize_value(self.visit(node.value))
         else:
             values = _sanitize_value(self.visit(node.value))
-        # FlagPrism: expose the source assignment before symbol binding.
-        _flagprism.annotate_statement("assignment", self, node, target, values)
+        # FlagPrism: emit normalized statement data before symbol binding.
+        _flagprism.emit_statement_event("assignment", self, node, target, values)
         self.assignTarget(target, values)
 
     def visit_AugAssign(self, node):
@@ -1604,7 +1605,7 @@ class CodeGenerator(ast.NodeVisitor):
         node.value._is_unused = True
         value = self.visit(node.value)
         # FlagPrism: retain the operation created by a void expression.
-        _flagprism.annotate_statement("expression", self, node, None, value)
+        _flagprism.emit_statement_event("expression", self, node, None, value)
 
     def visit_NoneType(self, node):
         return None

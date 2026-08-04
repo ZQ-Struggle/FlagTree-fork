@@ -5,8 +5,8 @@
 #include "amd/include/TritonAMDGPUTransforms/Passes.h"
 #include "third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h"
 #ifdef __PROTON__
-// FlagPrism: Proton is optional for this backend too.
-#include "FlagPrism/proton/Dialect/include/Integration/Registration.h"
+// FlagPrism Profiler owns the optional internal Proton dialect.
+#include "FlagPrism/Profiler/Dialect/include/Integration/Registration.h"
 #endif
 #include "triton/Dialect/Triton/IR/Dialect.h"
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
@@ -143,7 +143,7 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
   mlir::test::registerTestMathPolynomialApproximationPass();
 
 #ifdef __PROTON__
-  // FlagPrism centralizes Proton dialect and pass registration.
+  // FlagPrism Profiler centralizes its internal dialect registration.
   mlir::triton::proton::registerFlagTreeProtonPassesAndDialects(registry);
 #endif
 
@@ -203,7 +203,7 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
       mlir::LLVM::LLVMDialect, mlir::NVVM::NVVMDialect,
       mlir::triton::nvgpu::NVGPUDialect,
       mlir::triton::amdgpu::TritonAMDGPUDialect,
-      // FlagPrism registers Proton dialects through the centralized call above.
+      // FlagPrism registers the Profiler's internal dialects above.
       mlir::ROCDL::ROCDLDialect,
       mlir::ttx::TritonTilingExtDialect, mlir::tts::TritonStructuredDialect,
       mlir::linalg::LinalgDialect, mlir::func::FuncDialect,

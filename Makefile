@@ -71,16 +71,16 @@ test-interpret: all
 		language/test_tuple.py runtime/test_autotuner.py::test_kwargs[False] \
 		../../tutorials/06-fused-attention.py::test_op --device=cpu
 
-.PHONY: test-proton
-test-proton: all
-	# Proton tests moved to the FlagPrism submodule; legacy commands are retained for audit.
+.PHONY: test-profiler
+test-profiler: all
+	# FlagPrism Profiler tests live in the submodule; keep legacy commands for audit.
 	# $(PYTEST) -s -n 8 third_party/proton/test --ignore=third_party/proton/test/test_override.py
 	# $(PYTEST) -s third_party/proton/test/test_override.py
-	$(PYTEST) -s -n 8 third_party/FlagPrism/proton/test --ignore=third_party/FlagPrism/proton/test/test_override.py
-	$(PYTEST) -s third_party/FlagPrism/proton/test/test_override.py
+	$(PYTEST) -s -n 8 third_party/FlagPrism/Profiler/test --ignore=third_party/FlagPrism/Profiler/test/test_override.py
+	$(PYTEST) -s third_party/FlagPrism/Profiler/test/test_override.py
 
 .PHONY: test-python
-test-python: test-unit test-regression test-interpret test-proton
+test-python: test-unit test-regression test-interpret test-profiler
 
 .PHONY: test-nogpu
 test-nogpu: test-lit test-cpp

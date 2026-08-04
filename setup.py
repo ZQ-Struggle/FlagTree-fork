@@ -143,13 +143,7 @@ def _load_flagprism_build_config():
     project_root = Path(__file__).resolve().parent
     helper_path = project_root / "third_party" / "FlagPrism" / "python" / "flagprism_build.py"
     if not helper_path.is_file():
-        options = (
-            "TRITON_BUILD_FLAGPRISM",
-            "TRITON_BUILD_DEVTOOLS",
-            "TRITON_BUILD_PROTON",
-        )
-        configured = [name for name in options if name in os.environ]
-        if not configured or any(check_env_flag(name) for name in configured):
+        if check_env_flag("TRITON_BUILD_FLAGPRISM", "ON"):
             raise RuntimeError(
                 "FlagPrism sources are missing. Run "
                 "`git submodule update --init --recursive`."
@@ -483,7 +477,7 @@ class CMakeBuild(build_ext):
             pybind11_include_dir = pybind11.get_include()
         return [f"-Dpybind11_INCLUDE_DIR='{pybind11_include_dir}'", f"-Dpybind11_DIR='{pybind11.get_cmake_dir()}'"]
 
-    def get_proton_cmake_args(self):
+    def get_profiler_cmake_args(self):
         cmake_args = get_thirdparty_packages([get_json_package_info()])
         cmake_args += self.get_pybind11_cmake_args()
         cupti_include_dir = get_env_with_keys(["TRITON_CUPTI_INCLUDE_PATH"])
@@ -564,8 +558,8 @@ class CMakeBuild(build_ext):
                 "-DCMAKE_CXX_FLAGS=-fsanitize=address",
             ]
 
-        # FlagPrism translates legacy component switches into its unified CMake option.
-        # Only unrelated core build switches still pass through directly.
+        # FlagPrism's unified option is supplied by the build policy above.
+        # Only unrelated core build switches pass through directly here.
         passthrough_args = [
             "TRITON_BUILD_WITH_CCACHE",
             "TRITON_PARALLEL_LINK_JOBS",
@@ -574,7 +568,7 @@ class CMakeBuild(build_ext):
 
         # FlagPrism: resolve profiler-native dependencies only for the combined build.
         if FLAGPRISM is not None and FLAGPRISM.enabled:
-            cmake_args += self.get_proton_cmake_args()
+            cmake_args += self.get_profiler_cmake_args()
 
         if is_offline_build():
             # unit test builds fetch googletests from GitHub
@@ -775,7 +769,7 @@ if helper.flagtree_backend == "xpu":
 # }
 
 
-# FlagPrism uses package_dir mappings, so the parent tree no longer creates a Proton symlink.
+# FlagPrism uses package_dir mappings, so the parent tree creates no Profiler symlink.
 def add_links(external_only):
     add_link_to_backends(external_only=external_only)
 

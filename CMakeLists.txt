@@ -99,7 +99,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # Options
 option(TRITON_BUILD_PYTHON_MODULE "Build Python Triton bindings" OFF)
-# Standalone Proton configuration was removed; FlagPrism builds Proton and Debugger together.
+# FlagPrism replaces the former standalone profiler configuration and builds
+# Profiler and Debugger together.
 if(FLAGTREE_BACKEND)
   #[[
   option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" OFF)
@@ -116,8 +117,7 @@ set(FLAGPRISM_CMAKE_FILE
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/FlagPrism/cmake/FlagPrism.cmake")
 if(EXISTS "${FLAGPRISM_CMAKE_FILE}")
   include("${FLAGPRISM_CMAKE_FILE}")
-elseif(TRITON_BUILD_FLAGPRISM OR TRITON_BUILD_PROTON OR
-       TRITON_BUILD_DEVTOOLS)
+elseif(TRITON_BUILD_FLAGPRISM)
   message(FATAL_ERROR
     "FlagPrism source is missing. Run `git submodule update --init --recursive`.")
 elseif(NOT TARGET TritonTestProton)
@@ -378,7 +378,7 @@ if(TRITON_BUILD_PYTHON_MODULE)
     add_subdirectory(third_party/${CODEGEN_BACKEND})
   endforeach()
 
-  # Standalone Proton wiring was removed; FlagPrism registers these targets.
+  # FlagPrism replaces the former standalone profiler wiring at this lifecycle point.
   #[[
   if(TRITON_BUILD_PROTON)
     add_definitions(-D__PROTON__)
@@ -601,7 +601,7 @@ if(NOT TRITON_BUILD_PYTHON_MODULE)
   foreach(CODEGEN_BACKEND ${TRITON_CODEGEN_BACKENDS})
     add_subdirectory(third_party/${CODEGEN_BACKEND})
   endforeach()
-  # Standalone Proton dialect wiring was removed; FlagPrism owns this target.
+  # FlagPrism owns the Profiler's internal dialect wiring at this lifecycle point.
   #[[
   add_subdirectory(third_party/proton/Dialect)
   ]]

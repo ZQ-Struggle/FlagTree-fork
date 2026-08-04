@@ -214,8 +214,8 @@ ${third_party_triton_${arch}_fetch_bin}/third_party/nvidia/lib/TritonNVIDIAGPUTo
 ${third_party_triton_${arch}_fetch_bin}/third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/CMakeFiles/TritonNVIDIAGPUToLLVM.dir/TMAToLLVM.cpp.o
 ${third_party_triton_${arch}_fetch_bin}/third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/CMakeFiles/TritonNVIDIAGPUToLLVM.dir/TritonGPUToLLVM.cpp.o
 ${third_party_triton_${arch}_fetch_bin}/third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/CMakeFiles/TritonNVIDIAGPUToLLVM.dir/Utility.cpp.o
-# FlagPrism appends the active Proton objects centrally. Keep the legacy list
-# below as a non-executable audit reference.
+# FlagPrism Profiler appends its internal Proton objects centrally. Keep the
+# legacy list below as a non-executable audit reference.
 #[[
 ${third_party_triton_${arch}_fetch_bin}/third_party/proton/Dialect/lib/Analysis/CMakeFiles/ProtonAnalysis.dir/ScopeIdAllocation.cpp.o
 ${third_party_triton_${arch}_fetch_bin}/third_party/proton/Dialect/lib/Dialect/ProtonGPU/IR/CMakeFiles/ProtonGPUIR.dir/Dialect.cpp.o

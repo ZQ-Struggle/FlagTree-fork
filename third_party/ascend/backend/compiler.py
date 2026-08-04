@@ -167,9 +167,13 @@ def ttir_to_linalg(mod, metadata, opt, *, named_ops=False):
 
         pm.run(mod)
 
-        # FlagPrism: this is the last structured IR point before the
-        # Ascend adapter serializes the module.
-        _flagprism.run_compiler_hook("ttadapter.pre_serialize", mod, metadata)
+        # FlagPrism: publish the last structured IR before backend serialization.
+        _flagprism.emit_compiler_event(
+            phase="pre_backend_serialize",
+            ir_kind="ttadapter",
+            module=mod,
+            metadata=metadata,
+        )
 
         if opt.debug:
             dump_manager = get_dump_manager(metadata["hash"])
