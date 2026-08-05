@@ -40,7 +40,6 @@ jobs:
           export FLAGTREE_BACKEND=ascend
           source ~/env.sh
           export PATH=~/.flagtree/ascend/llvm-7d5de303-ubuntu-aarch64-python311-compat/bin/:${PATH}  # clang
-          export TRITON_APPEND_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
           MAX_JOBS=32 python3 -m pip install . --no-build-isolation
 
       - name: FlagTree Test on Ascend
@@ -141,7 +140,12 @@ jobs:
           python3 test_tle_with_hints.py
           popd
           # flagtree tle tutorial
-          pushd python/tutorials/tle
+          pushd python/tutorials/tle/dsa
+          python3 01-sparse-flash-attn-tle.py
+          python3 02-causal-conv1d-prefill.py
+          python3 03-causal-conv1d-decode.py
+          python3 04-tle-cv-mix-pipeline.py
+          python3 05-lightning-indexer-v1.py
           python3 06-swiglu.py
           python3 07-kv-rmsnorm-rope-cache.py
           pytest -s -k "accuracy" 08-add-rms-norm-bias.py
