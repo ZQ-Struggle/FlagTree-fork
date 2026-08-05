@@ -13,8 +13,7 @@ flagtree_submodules = {
     tools.Module(name="flir", url="https://github.com/flagos-ai/flir.git", commit_id="",
                  dst_path=os.path.join(flagtree_configs.flagtree_submodule_dir, "flir")),
     "flagprism":
-    tools.Module(name="FlagPrism", url="https://github.com/ZQ-Struggle/FlagTree_DevTools.git",
-                 commit_id="1b93d3143745e4d06a6726d570e3313000eb4156",
+    tools.Module(name="FlagPrism", url="https://github.com/flagos-ai/FlagPrism.git", branch="main",
                  dst_path=os.path.join(flagtree_configs.flagtree_submodule_dir, "FlagPrism")),
 }
 
