@@ -71,13 +71,32 @@ test-interpret: all
 		language/test_tuple.py runtime/test_autotuner.py::test_kwargs[False] \
 		../../tutorials/06-fused-attention.py::test_op --device=cpu
 
-.PHONY: test-profiler
-test-profiler: all
-	# FlagPrism Profiler tests live in the submodule; keep legacy commands for audit.
-	# $(PYTEST) -s -n 8 third_party/proton/test --ignore=third_party/proton/test/test_override.py
-	# $(PYTEST) -s third_party/proton/test/test_override.py
+.PHONY: test-proton
+test-proton: all
+	$(PYTEST) -s -n 8 third_party/proton/test --ignore=third_party/proton/test/test_override.py
+	$(PYTEST) -s third_party/proton/test/test_override.py
+
+.PHONY: test-flagprism
+test-flagprism: all
 	$(PYTEST) -s -n 8 third_party/FlagPrism/Profiler/test --ignore=third_party/FlagPrism/Profiler/test/test_override.py
 	$(PYTEST) -s third_party/FlagPrism/Profiler/test/test_override.py
+
+ifeq ($(TRITON_BUILD_FLAGPRISM),OFF)
+ifeq ($(TRITON_BUILD_PROTON),OFF)
+PROFILER_TEST_TARGET := test-profiler-disabled
+else
+PROFILER_TEST_TARGET := test-proton
+endif
+else
+PROFILER_TEST_TARGET := test-flagprism
+endif
+
+.PHONY: test-profiler-disabled
+test-profiler-disabled: all
+	@echo "Profiler tests skipped: both profiler runtimes are disabled."
+
+.PHONY: test-profiler
+test-profiler: $(PROFILER_TEST_TARGET)
 
 .PHONY: test-python
 test-python: test-unit test-regression test-interpret test-profiler

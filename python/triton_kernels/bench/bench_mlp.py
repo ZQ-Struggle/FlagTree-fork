@@ -1,8 +1,7 @@
 from itertools import chain
 from pathlib import Path
 from copy import deepcopy
-# FlagPrism: use the bundled Profiler's stable public namespace.
-import flagtree.profiler as proton
+import triton.profiler as proton
 import torch
 import argparse
 import triton_kernels

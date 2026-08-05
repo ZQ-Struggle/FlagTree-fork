@@ -1,5 +1,3 @@
-# Profiler C++ tests moved to FlagPrism; retain this internal target for audit.
-#[[
 add_mlir_library(TritonTestProton
   TestScopeIdAllocation.cpp
 
@@ -7,4 +5,3 @@ add_mlir_library(TritonTestProton
   MLIRPass
   ${triton_libs}
 )
-]]

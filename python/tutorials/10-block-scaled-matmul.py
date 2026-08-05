@@ -70,7 +70,7 @@ import argparse
 import torch
 import triton
 import triton.language as tl
-import flagtree.profiler as proton
+import triton.profiler as proton
 from triton.tools.tensor_descriptor import TensorDescriptor
 from triton.tools.mxfp import MXFP4Tensor, MXScaleTensor
 
@@ -331,7 +331,7 @@ def bench_block_scaled(K, block_scale_type="nvfp4", reps=10):
 
 
 def show_profile(profile_name):
-    import flagtree.profiler.viewer as proton_viewer
+    import triton.profiler.viewer as proton_viewer
 
     metric_names = ["time/ms"]
     metric_names = ["tflop/s"] + metric_names

@@ -26,8 +26,7 @@ import sys
 import torch
 import triton
 import triton.language as tl
-# FlagPrism: use the bundled Profiler's stable public namespace.
-import flagtree.profiler as proton
+import triton.profiler as proton
 from triton.tools.tensor_descriptor import TensorDescriptor
 from contextlib import contextmanager
 
@@ -704,8 +703,7 @@ def validate(M, N, K, dtype):
 
 
 def show_profile(precision, profile_name):
-    # FlagPrism: use the bundled Profiler viewer namespace.
-    import flagtree.profiler.viewer as proton_viewer
+    import triton.profiler.viewer as proton_viewer
     metric_names = ["time/ms"]
     if precision == 'fp8':
         metric_names = ["tflop8/s"] + metric_names

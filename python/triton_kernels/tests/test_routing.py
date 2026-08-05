@@ -77,8 +77,7 @@ def test_op(n_tokens_pad, n_tokens_raw, n_expts_tot, n_expts_act, sm_first, use_
 
 
 def bench_routing():
-    # FlagPrism: use the bundled Profiler's stable public namespace.
-    import flagtree.profiler as proton
+    import triton.profiler as proton
     n_tokens = 8192
     n_expts_tot, n_expts_act = 128, 4
     tri_logits = init_data(n_tokens, n_expts_tot)
@@ -89,7 +88,7 @@ def bench_routing():
     proton.finalize()
     try:
         import os
-        os.system("flagtree-profiler-viewer -m time/ms routing.hatchet")
+        os.system("proton-viewer -m time/ms routing.hatchet")
     except Exception:
         pass
 

@@ -99,30 +99,47 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # Options
 option(TRITON_BUILD_PYTHON_MODULE "Build Python Triton bindings" OFF)
-# FlagPrism replaces the former standalone profiler configuration and builds
-# Profiler and Debugger together.
 if(FLAGTREE_BACKEND)
-  #[[
+  set(_flagprism_default OFF)
+else()
+  set(_flagprism_default ON)
+endif()
+option(TRITON_BUILD_FLAGPRISM
+       "Build the FlagPrism debugger and profiler"
+       ${_flagprism_default})
+
+# Keep the original Proton defaults when FlagPrism is not the selected
+# profiler provider. A configure may select at most one full profiler runtime.
+if(FLAGTREE_BACKEND OR TRITON_BUILD_FLAGPRISM)
   option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" OFF)
-  ]]
+else()
+  option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" ON)
+endif()
+if(FLAGTREE_BACKEND)
   option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" OFF)
 else()
-  #[[
-  option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" ON)
-  ]]
   option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" ON)
 endif()
-# FlagPrism integration: load the combined Debugger and Profiler build policy.
-set(FLAGPRISM_CMAKE_FILE
-    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/FlagPrism/cmake/FlagPrism.cmake")
-if(EXISTS "${FLAGPRISM_CMAKE_FILE}")
-  include("${FLAGPRISM_CMAKE_FILE}")
-elseif(TRITON_BUILD_FLAGPRISM)
+
+if(TRITON_BUILD_FLAGPRISM AND TRITON_BUILD_PROTON)
   message(FATAL_ERROR
-    "FlagPrism source is missing. Run `git submodule update --init --recursive`.")
-elseif(NOT TARGET TritonTestProton)
-  # Keep core-only builds compatible with the baseline tool link list.
-  add_library(TritonTestProton INTERFACE)
+    "TRITON_BUILD_FLAGPRISM and TRITON_BUILD_PROTON cannot both be enabled. "
+    "Select exactly one profiler implementation.")
+endif()
+
+# Load FlagPrism only when it is the selected provider. Legacy and core-only
+# builds must not depend on the downloaded source tree.
+if(TRITON_BUILD_FLAGPRISM)
+  set(FLAGPRISM_CMAKE_FILE
+      "${CMAKE_CURRENT_SOURCE_DIR}/third_party/FlagPrism/cmake/FlagPrism.cmake")
+  if(EXISTS "${FLAGPRISM_CMAKE_FILE}")
+    include("${FLAGPRISM_CMAKE_FILE}")
+    add_compile_definitions(__FLAGPRISM__=1)
+  else()
+    message(FATAL_ERROR
+      "FlagPrism source is missing. Run the Python package build to download "
+      "third-party dependencies.")
+  endif()
 endif()
 option(TRITON_BUILD_WITH_CCACHE "Build with ccache (if available)" ON)
 set(TRITON_CODEGEN_BACKENDS "" CACHE STRING "Enable different codegen backends")
@@ -352,8 +369,8 @@ if(TRITON_BUILD_PYTHON_MODULE)
     add_subdirectory(third_party/flir)
   endif()
 
-  # FlagPrism integration: add the bundled tools before TRITON_LIBS is read.
-  if(COMMAND flagprism_add_components)
+  # Add the selected profiler provider before TRITON_LIBS is read.
+  if(TRITON_BUILD_FLAGPRISM)
     flagprism_add_components()
   endif()
 
@@ -378,16 +395,16 @@ if(TRITON_BUILD_PYTHON_MODULE)
     add_subdirectory(third_party/${CODEGEN_BACKEND})
   endforeach()
 
-  # FlagPrism replaces the former standalone profiler wiring at this lifecycle point.
-  #[[
-  if(TRITON_BUILD_PROTON)
-    add_definitions(-D__PROTON__)
-    add_subdirectory(third_party/proton)
+  if(NOT TRITON_BUILD_FLAGPRISM)
+    if(TRITON_BUILD_PROTON)
+      add_definitions(-D__PROTON__)
+      add_subdirectory(third_party/proton)
+    endif()
+    # Preserve the baseline tool contract: the legacy Proton dialect is built
+    # even when its Python profiler runtime is disabled.
+    list(APPEND TRITON_PLUGIN_NAMES "proton")
+    add_subdirectory(third_party/proton/Dialect)
   endif()
-  # We always build proton dialect
-  list(APPEND TRITON_PLUGIN_NAMES "proton")
-  add_subdirectory(third_party/proton/Dialect)
-  ]]
 
   # The 3.2 DSA CMake tree defines the same TLE dialect/plugin targets as
   # third_party/tle on 3.5, so do not add it as a second CMake subdirectory.
@@ -594,17 +611,15 @@ if(NOT TRITON_BUILD_PYTHON_MODULE)
   if(FLAGTREE_BACKEND STREQUAL "ascend")
     add_subdirectory(third_party/flir)
   endif()
-  # FlagPrism integration: add the targets required by non-Python tools.
-  if(COMMAND flagprism_add_components)
+  # Add exactly one internal Proton dialect provider for non-Python tools.
+  if(TRITON_BUILD_FLAGPRISM)
     flagprism_add_components()
+  else()
+    add_subdirectory(third_party/proton/Dialect)
   endif()
   foreach(CODEGEN_BACKEND ${TRITON_CODEGEN_BACKENDS})
     add_subdirectory(third_party/${CODEGEN_BACKEND})
   endforeach()
-  # FlagPrism owns the Profiler's internal dialect wiring at this lifecycle point.
-  #[[
-  add_subdirectory(third_party/proton/Dialect)
-  ]]
 endif()
 
 find_package(Threads REQUIRED)
