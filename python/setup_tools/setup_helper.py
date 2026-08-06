@@ -76,7 +76,7 @@ def enable_flagtree_third_party(name):
 
 
 def get_hook_instance(hook_name):
-    if not configs.activated_module:
+    if not hook_name or not configs.activated_module:
         return None
     hook_instance = getattr(configs.activated_module, hook_name, None)
     return hook_instance if callable(hook_instance) else None
