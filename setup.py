@@ -424,15 +424,20 @@ class FlagPrismSetup:
         else:
             self.prepare_build_tree(build_lib)
 
-    def extend_distribution(self, packages: list, package_dirs: dict, entry_points: dict) -> None:
+    def packages(self) -> tuple[str, ...]:
         if self.build_config is None:
-            return
-        if "flagtree" not in packages:
-            packages.append("flagtree")
-        packages.extend(self.build_config.packages())
-        package_dirs.update(self.build_config.package_dirs())
-        if console_scripts := self.build_config.console_scripts():
-            entry_points["console_scripts"] = console_scripts
+            return ()
+        return ("flagtree", *self.build_config.packages())
+
+    def package_dirs(self) -> tuple[tuple[str, str], ...]:
+        if self.build_config is None:
+            return ()
+        return self.build_config.package_dirs()
+
+    def console_scripts(self) -> list[str]:
+        if self.build_config is None:
+            return []
+        return self.build_config.console_scripts()
 
 
 FLAGPRISM_SETUP = FlagPrismSetup()
@@ -741,6 +746,7 @@ else:
 
 def get_package_dirs():
     yield ("", "python")
+    yield from FLAGPRISM_SETUP.package_dirs()
 
     for backend in backends:
         # we use symlinks for external plugins
@@ -768,6 +774,7 @@ def get_package_dirs():
 
 def get_packages():
     yield from find_packages(where="python", include=["triton", "triton.*"])
+    yield from FLAGPRISM_SETUP.packages()
 
     for backend in backends:
         yield f"triton.backends.{backend.name}"
@@ -893,6 +900,8 @@ class plugin_sdist(sdist):
 
 def get_entry_points():
     entry_points = {}
+    if console_scripts := FLAGPRISM_SETUP.console_scripts():
+        entry_points["console_scripts"] = console_scripts
     if check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
         entry_points["console_scripts"] = [
             "proton-viewer = triton.profiler.viewer:main",
@@ -964,11 +973,6 @@ readme_path = os.path.join(get_base_dir(), "README.md")
 with open(readme_path, "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-packages = list(get_packages())
-package_dirs = dict(get_package_dirs())
-entry_points = get_entry_points()
-FLAGPRISM_SETUP.extend_distribution(packages, package_dirs, entry_points)
-
 setup(
     name=os.environ.get("FLAGTREE_WHEEL_NAME", "flagtree"),
     version=get_flagtree_version(),
@@ -981,9 +985,9 @@ setup(
     install_requires=[
         "importlib-metadata; python_version < '3.10'",
     ],
-    packages=packages,
-    package_dir=package_dirs,
-    entry_points=entry_points,
+    packages=list(get_packages()),
+    package_dir=dict(get_package_dirs()),
+    entry_points=get_entry_points(),
     include_package_data=True,
     ext_modules=[CMakeExtension("triton", "triton/_C/")],
     cmdclass={

@@ -141,6 +141,23 @@ if(TRITON_BUILD_FLAGPRISM)
       "third-party dependencies.")
   endif()
 endif()
+
+# Keep profiler-provider selection in one place while allowing each provider
+# to be added at the lifecycle point required by its targets.
+macro(flagtree_add_flagprism_components)
+  if(TRITON_BUILD_FLAGPRISM)
+    flagprism_add_components()
+  endif()
+endmacro()
+
+macro(flagtree_add_legacy_proton_dialect register_plugin)
+  if(NOT TRITON_BUILD_FLAGPRISM)
+    if(${register_plugin})
+      list(APPEND TRITON_PLUGIN_NAMES "proton")
+    endif()
+    add_subdirectory(third_party/proton/Dialect)
+  endif()
+endmacro()
 option(TRITON_BUILD_WITH_CCACHE "Build with ccache (if available)" ON)
 set(TRITON_CODEGEN_BACKENDS "" CACHE STRING "Enable different codegen backends")
 
@@ -369,11 +386,8 @@ if(TRITON_BUILD_PYTHON_MODULE)
     add_subdirectory(third_party/flir)
   endif()
 
-  # FlagPrism must register its compiler libraries before backend codegen
-  # targets capture TRITON_LIBS.
-  if(TRITON_BUILD_FLAGPRISM)
-    flagprism_add_components()
-  endif()
+  # Backend codegen targets capture TRITON_LIBS at configuration time.
+  flagtree_add_flagprism_components()
 
   if (DEFINED TRITON_PLUGIN_DIRS)
     foreach(PLUGIN_DIR ${TRITON_PLUGIN_DIRS})
@@ -400,10 +414,7 @@ if(TRITON_BUILD_PYTHON_MODULE)
     add_definitions(-D__PROTON__)
     add_subdirectory(third_party/proton)
   endif()
-  if(NOT TRITON_BUILD_FLAGPRISM)
-    list(APPEND TRITON_PLUGIN_NAMES "proton")
-    add_subdirectory(third_party/proton/Dialect)
-  endif()
+  flagtree_add_legacy_proton_dialect(TRUE)
 
   # The 3.2 DSA CMake tree defines the same TLE dialect/plugin targets as
   # third_party/tle on 3.5, so do not add it as a second CMake subdirectory.
@@ -610,11 +621,8 @@ if(NOT TRITON_BUILD_PYTHON_MODULE)
   if(FLAGTREE_BACKEND STREQUAL "ascend")
     add_subdirectory(third_party/flir)
   endif()
-  if(TRITON_BUILD_FLAGPRISM)
-    flagprism_add_components()
-  else()
-    add_subdirectory(third_party/proton/Dialect)
-  endif()
+  flagtree_add_flagprism_components()
+  flagtree_add_legacy_proton_dialect(FALSE)
   foreach(CODEGEN_BACKEND ${TRITON_CODEGEN_BACKENDS})
     add_subdirectory(third_party/${CODEGEN_BACKEND})
   endforeach()
