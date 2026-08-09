@@ -138,52 +138,6 @@ def check_env_flag(name: str, default: str = "") -> bool:
     return os.getenv(name, default).upper() in ["ON", "1", "YES", "TRUE", "Y"]
 
 
-def _resolve_profiler_build_modes() -> tuple[bool, bool]:
-    build_flagprism = check_env_flag("TRITON_BUILD_FLAGPRISM", "ON")
-    proton_value = os.getenv("TRITON_BUILD_PROTON")
-    if proton_value is None:
-        # Match the direct-CMake defaults when FlagPrism is disabled: generic
-        # builds retain legacy Proton, while explicit backend builds stay lean.
-        build_proton = not build_flagprism and not helper.flagtree_backend
-    else:
-        build_proton = check_env_flag("TRITON_BUILD_PROTON")
-    if build_flagprism and build_proton:
-        raise RuntimeError(
-            "TRITON_BUILD_FLAGPRISM and TRITON_BUILD_PROTON cannot both be enabled. "
-            "Set one of them to OFF."
-        )
-    return build_flagprism, build_proton
-
-
-BUILD_FLAGPRISM, BUILD_PROTON = _resolve_profiler_build_modes()
-
-
-# FlagPrism integration: FlagTree owns dependency bootstrap and wheel policy loading.
-helper.download_flagtree_third_party(
-    "flagprism",
-    condition=BUILD_FLAGPRISM,
-    required=True,
-)
-
-
-def _load_flagprism_build_config():
-    if not BUILD_FLAGPRISM:
-        return None
-    project_root = Path(__file__).resolve().parent
-    helper_path = project_root / "third_party" / "FlagPrism" / "python" / "flagprism_build.py"
-    if not helper_path.is_file():
-        raise RuntimeError(
-            "FlagPrism sources are missing. Run the Python package build "
-            "to download third-party dependencies."
-        )
-
-    policy = runpy.run_path(str(helper_path), run_name="_flagprism_build")
-    return policy["create_build_config"](project_root)
-
-
-FLAGPRISM = _load_flagprism_build_config()
-
-
 def get_build_type():
     if check_env_flag("DEBUG"):
         return "Debug"
@@ -396,6 +350,94 @@ def get_thirdparty_packages(packages: list):
     return thirdparty_cmake_args
 
 
+class FlagPrismSetup:
+
+    def __init__(self):
+        self.project_root = Path(__file__).resolve().parent
+        self.enabled = check_env_flag("TRITON_BUILD_FLAGPRISM", "ON")
+        self.build_config = None
+
+        if not self.enabled:
+            return
+        if check_env_flag("TRITON_BUILD_PROTON"):
+            raise RuntimeError(
+                "TRITON_BUILD_FLAGPRISM and TRITON_BUILD_PROTON cannot both be enabled. "
+                "Set one of them to OFF."
+            )
+
+        # Keep the legacy Proton setup paths unchanged; selecting FlagPrism
+        # makes their existing environment checks evaluate to false.
+        os.environ["TRITON_BUILD_PROTON"] = "OFF"
+        helper.download_flagtree_third_party("flagprism", condition=True, required=True)
+
+        helper_path = self.project_root / "third_party" / "FlagPrism" / "python" / "flagprism_build.py"
+        if not helper_path.is_file():
+            raise RuntimeError(
+                "FlagPrism sources are missing. Run the Python package build "
+                "to download third-party dependencies."
+            )
+        policy = runpy.run_path(str(helper_path), run_name="_flagprism_build")
+        self.build_config = policy["create_build_config"](self.project_root)
+
+        legacy_link = self.project_root / "python" / "triton" / "profiler"
+        if legacy_link.is_symlink():
+            legacy_link.unlink()
+
+    @staticmethod
+    def _remove_path(path: Path) -> None:
+        if path.is_symlink() or path.is_file():
+            path.unlink(missing_ok=True)
+        elif path.is_dir():
+            shutil.rmtree(path)
+
+    def cmake_args(self, build_lib: str) -> list[str]:
+        if self.build_config is None:
+            return ["-DTRITON_BUILD_FLAGPRISM=OFF"]
+        return self.build_config.cmake_args(build_lib)
+
+    def dependency_cmake_args(self, build_ext) -> list[str]:
+        if not self.enabled:
+            return []
+        cmake_args = get_thirdparty_packages([get_json_package_info()])
+        cmake_args += build_ext.get_pybind11_cmake_args()
+        cupti_include_dir = get_env_with_keys(["TRITON_CUPTI_INCLUDE_PATH"])
+        if cupti_include_dir == "":
+            cupti_include_dir = os.path.join(get_base_dir(), "third_party", "nvidia", "backend", "include")
+        cmake_args += ["-DCUPTI_INCLUDE_DIR=" + cupti_include_dir]
+        roctracer_include_dir = get_env_with_keys(["TRITON_ROCTRACER_INCLUDE_PATH"])
+        if roctracer_include_dir == "":
+            roctracer_include_dir = os.path.join(get_base_dir(), "third_party", "amd", "backend", "include")
+        cmake_args += ["-DROCTRACER_INCLUDE_DIR=" + roctracer_include_dir]
+        return cmake_args
+
+    def prepare_build_tree(self, build_lib: str) -> None:
+        if self.build_config is not None:
+            self.build_config.prepare_build_tree(build_lib)
+            return
+        build_root = Path(build_lib) / "flagtree"
+        self._remove_path(build_root / "debugger")
+        self._remove_path(build_root / "profiler")
+
+    def finalize_build_tree(self, build_lib: str) -> None:
+        if self.build_config is not None:
+            self.build_config.finalize_build_tree(build_lib)
+        else:
+            self.prepare_build_tree(build_lib)
+
+    def extend_distribution(self, packages: list, package_dirs: dict, entry_points: dict) -> None:
+        if self.build_config is None:
+            return
+        if "flagtree" not in packages:
+            packages.append("flagtree")
+        packages.extend(self.build_config.packages())
+        package_dirs.update(self.build_config.package_dirs())
+        if console_scripts := self.build_config.console_scripts():
+            entry_points["console_scripts"] = console_scripts
+
+
+FLAGPRISM_SETUP = FlagPrismSetup()
+
+
 def download_and_copy(name, src_func, dst_path, variable, version, url_func):
     if is_offline_build():
         return
@@ -444,38 +486,14 @@ class CMakeClean(clean):
         self.build_temp = get_cmake_dir()
 
 
-def _remove_build_path(path: Path) -> None:
-    if path.is_symlink() or path.is_file():
-        path.unlink(missing_ok=True)
-    elif path.is_dir():
-        shutil.rmtree(path)
-
-
-def _clean_inactive_profiler_artifacts(build_lib: str) -> None:
-    build_root = Path(build_lib)
-    if not BUILD_FLAGPRISM:
-        _remove_build_path(build_root / "flagtree" / "debugger")
-        _remove_build_path(build_root / "flagtree" / "profiler")
-    if not BUILD_PROTON:
-        _remove_build_path(build_root / "triton" / "profiler")
-        for artifact in (build_root / "triton" / "_C").glob("libproton*"):
-            _remove_build_path(artifact)
-
-
 class CMakeBuildPy(build_py):
 
     def run(self) -> None:
-        _clean_inactive_profiler_artifacts(self.build_lib)
-        # FlagPrism: sanitize a reused build_lib before native components are written.
-        if FLAGPRISM is not None:
-            FLAGPRISM.prepare_build_tree(self.build_lib)
+        FLAGPRISM_SETUP.prepare_build_tree(self.build_lib)
         self.run_command('build_ext')
         helper.write_flagtree_backend_file()
         result = super().run()
-        # FlagPrism: remove stale source artifacts copied by setuptools afterward.
-        if FLAGPRISM is not None:
-            FLAGPRISM.finalize_build_tree(self.build_lib)
-        _clean_inactive_profiler_artifacts(self.build_lib)
+        FLAGPRISM_SETUP.finalize_build_tree(self.build_lib)
         return result
 
 
@@ -524,7 +542,7 @@ class CMakeBuild(build_ext):
             pybind11_include_dir = pybind11.get_include()
         return [f"-Dpybind11_INCLUDE_DIR='{pybind11_include_dir}'", f"-Dpybind11_DIR='{pybind11.get_cmake_dir()}'"]
 
-    def get_profiler_cmake_args(self):
+    def get_proton_cmake_args(self):
         cmake_args = get_thirdparty_packages([get_json_package_info()])
         cmake_args += self.get_pybind11_cmake_args()
         cupti_include_dir = get_env_with_keys(["TRITON_CUPTI_INCLUDE_PATH"])
@@ -560,13 +578,9 @@ class CMakeBuild(build_ext):
             "-DPython3_EXECUTABLE:FILEPATH=" + sys.executable, "-DPython3_INCLUDE_DIR=" + python_include_dir,
             "-DTRITON_CODEGEN_BACKENDS=" + ';'.join([b.name for b in backends if not b.is_external]),
             "-DTRITON_PLUGIN_DIRS=" + ';'.join([b.src_dir for b in backends if b.is_external]),
-            "-DTRITON_WHEEL_DIR=" + wheeldir,
-            "-DTRITON_BUILD_FLAGPRISM=" + ("ON" if BUILD_FLAGPRISM else "OFF"),
-            "-DTRITON_BUILD_PROTON=" + ("ON" if BUILD_PROTON else "OFF"),
+            "-DTRITON_WHEEL_DIR=" + wheeldir
         ]
-        # FlagPrism: forward the unified suite switch and wheel output paths.
-        if FLAGPRISM is not None:
-            cmake_args += FLAGPRISM.cmake_args(self.build_lib)
+        cmake_args += FLAGPRISM_SETUP.cmake_args(self.build_lib)
         cmake_args += helper.get_backend_cmake_args(build_ext=self)
         if lit_dir is not None:
             cmake_args.append("-DLLVM_EXTERNAL_LIT=" + lit_dir)
@@ -607,17 +621,17 @@ class CMakeBuild(build_ext):
                 "-DCMAKE_CXX_FLAGS=-fsanitize=address",
             ]
 
-        # FlagPrism's unified option is supplied by the build policy above.
-        # Only unrelated core build switches pass through directly here.
+        # environment variables we will pass through to cmake
         passthrough_args = [
+            "TRITON_BUILD_PROTON",
             "TRITON_BUILD_WITH_CCACHE",
             "TRITON_PARALLEL_LINK_JOBS",
         ]
         cmake_args += [f"-D{option}={os.getenv(option)}" for option in passthrough_args if option in os.environ]
 
-        # Both profiler runtimes use the same JSON, pybind11 and GPU headers.
-        if BUILD_FLAGPRISM or BUILD_PROTON:
-            cmake_args += self.get_profiler_cmake_args()
+        if check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
+            cmake_args += self.get_proton_cmake_args()
+        cmake_args += FLAGPRISM_SETUP.dependency_cmake_args(self)
 
         if is_offline_build():
             # unit test builds fetch googletests from GitHub
@@ -727,9 +741,6 @@ else:
 
 def get_package_dirs():
     yield ("", "python")
-    # FlagPrism: map downloaded sources directly into the parent wheel namespace.
-    if FLAGPRISM is not None:
-        yield from FLAGPRISM.package_dirs()
 
     for backend in backends:
         # we use symlinks for external plugins
@@ -750,16 +761,13 @@ def get_package_dirs():
             for x in os.listdir(backend.tools_dir):
                 yield (f"triton.tools.extra.{x}", os.path.join(backend.tools_dir, x))
 
-    if BUILD_PROTON:
+    if check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
         yield ("triton.profiler", "third_party/proton/proton")
         yield ("triton.profiler.hooks", "third_party/proton/proton/hooks")
 
 
 def get_packages():
-    # FlagPrism publishes its stable public API below the parent `flagtree` package.
-    yield from find_packages(where="python", include=["flagtree", "triton", "triton.*"])
-    if FLAGPRISM is not None:
-        yield from FLAGPRISM.packages()
+    yield from find_packages(where="python", include=["triton", "triton.*"])
 
     for backend in backends:
         yield f"triton.backends.{backend.name}"
@@ -781,7 +789,7 @@ def get_packages():
     elif helper.flagtree_backend == "mthreads":
         yield f"triton/language/extra/musa"
 
-    if BUILD_PROTON:
+    if check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
         yield "triton.profiler"
 
 
@@ -828,19 +836,10 @@ def add_link_to_proton():
     update_symlink(proton_install_dir, proton_dir)
 
 
-def remove_legacy_proton_link():
-    proton_install_dir = Path(__file__).resolve().parent / "python" / "triton" / "profiler"
-    if proton_install_dir.is_symlink():
-        proton_install_dir.unlink()
-
-
 def add_links(external_only):
     add_link_to_backends(external_only=external_only)
-    if not external_only:
-        if BUILD_PROTON:
-            add_link_to_proton()
-        else:
-            remove_legacy_proton_link()
+    if not external_only and check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
+        add_link_to_proton()
 
 
 class plugin_bdist_wheel(bdist_wheel):
@@ -894,11 +893,7 @@ class plugin_sdist(sdist):
 
 def get_entry_points():
     entry_points = {}
-    # FlagPrism: publish Profiler CLIs only when the combined suite is enabled.
-    if FLAGPRISM is not None:
-        if console_scripts := FLAGPRISM.console_scripts():
-            entry_points["console_scripts"] = console_scripts
-    elif BUILD_PROTON:
+    if check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
         entry_points["console_scripts"] = [
             "proton-viewer = triton.profiler.viewer:main",
             "proton = triton.profiler.proton:main",
@@ -969,6 +964,11 @@ readme_path = os.path.join(get_base_dir(), "README.md")
 with open(readme_path, "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
+packages = list(get_packages())
+package_dirs = dict(get_package_dirs())
+entry_points = get_entry_points()
+FLAGPRISM_SETUP.extend_distribution(packages, package_dirs, entry_points)
+
 setup(
     name=os.environ.get("FLAGTREE_WHEEL_NAME", "flagtree"),
     version=get_flagtree_version(),
@@ -981,9 +981,9 @@ setup(
     install_requires=[
         "importlib-metadata; python_version < '3.10'",
     ],
-    packages=list(get_packages()),
-    package_dir=dict(get_package_dirs()),
-    entry_points=get_entry_points(),
+    packages=packages,
+    package_dir=package_dirs,
+    entry_points=entry_points,
     include_package_data=True,
     ext_modules=[CMakeExtension("triton", "triton/_C/")],
     cmdclass={

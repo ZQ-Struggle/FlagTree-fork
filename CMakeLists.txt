@@ -369,7 +369,8 @@ if(TRITON_BUILD_PYTHON_MODULE)
     add_subdirectory(third_party/flir)
   endif()
 
-  # Add the selected profiler provider before TRITON_LIBS is read.
+  # FlagPrism must register its compiler libraries before backend codegen
+  # targets capture TRITON_LIBS.
   if(TRITON_BUILD_FLAGPRISM)
     flagprism_add_components()
   endif()
@@ -395,13 +396,11 @@ if(TRITON_BUILD_PYTHON_MODULE)
     add_subdirectory(third_party/${CODEGEN_BACKEND})
   endforeach()
 
+  if(TRITON_BUILD_PROTON)
+    add_definitions(-D__PROTON__)
+    add_subdirectory(third_party/proton)
+  endif()
   if(NOT TRITON_BUILD_FLAGPRISM)
-    if(TRITON_BUILD_PROTON)
-      add_definitions(-D__PROTON__)
-      add_subdirectory(third_party/proton)
-    endif()
-    # Preserve the baseline tool contract: the legacy Proton dialect is built
-    # even when its Python profiler runtime is disabled.
     list(APPEND TRITON_PLUGIN_NAMES "proton")
     add_subdirectory(third_party/proton/Dialect)
   endif()
@@ -611,7 +610,6 @@ if(NOT TRITON_BUILD_PYTHON_MODULE)
   if(FLAGTREE_BACKEND STREQUAL "ascend")
     add_subdirectory(third_party/flir)
   endif()
-  # Add exactly one internal Proton dialect provider for non-Python tools.
   if(TRITON_BUILD_FLAGPRISM)
     flagprism_add_components()
   else()

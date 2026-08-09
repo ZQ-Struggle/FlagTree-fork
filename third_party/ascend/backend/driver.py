@@ -18,19 +18,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from pathlib import Path
+import tempfile
 from dataclasses import dataclass
 import os
 import os.path
 import re
 import subprocess
 import sysconfig
-import tempfile
-from pathlib import Path
 from typing import Optional
 import functools
 import hashlib
 
-# FlagPrism uses the core no-op gateway so core-only builds keep this backend importable.
 from triton import _flagprism
 from triton.runtime.cache import get_cache_manager, get_dump_manager
 from triton.backends.driver import DriverBase
