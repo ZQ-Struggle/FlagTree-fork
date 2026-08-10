@@ -214,10 +214,6 @@ ${third_party_triton_${arch}_fetch_bin}/third_party/nvidia/lib/TritonNVIDIAGPUTo
 ${third_party_triton_${arch}_fetch_bin}/third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/CMakeFiles/TritonNVIDIAGPUToLLVM.dir/TMAToLLVM.cpp.o
 ${third_party_triton_${arch}_fetch_bin}/third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/CMakeFiles/TritonNVIDIAGPUToLLVM.dir/TritonGPUToLLVM.cpp.o
 ${third_party_triton_${arch}_fetch_bin}/third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/CMakeFiles/TritonNVIDIAGPUToLLVM.dir/Utility.cpp.o
-)
-
-if(NOT TRITON_BUILD_FLAGPRISM)
-  list(APPEND triton_${arch}_objs
 ${third_party_triton_${arch}_fetch_bin}/third_party/proton/Dialect/lib/Analysis/CMakeFiles/ProtonAnalysis.dir/ScopeIdAllocation.cpp.o
 ${third_party_triton_${arch}_fetch_bin}/third_party/proton/Dialect/lib/Dialect/ProtonGPU/IR/CMakeFiles/ProtonGPUIR.dir/Dialect.cpp.o
 ${third_party_triton_${arch}_fetch_bin}/third_party/proton/Dialect/lib/Dialect/ProtonGPU/IR/CMakeFiles/ProtonGPUIR.dir/Ops.cpp.o
@@ -237,5 +233,4 @@ ${third_party_triton_${arch}_fetch_bin}/third_party/proton/Dialect/lib/ProtonGPU
 ${third_party_triton_${arch}_fetch_bin}/third_party/proton/Dialect/lib/ProtonGPUToLLVM/ProtonNvidiaGPUToLLVM/CMakeFiles/ProtonNVIDIAGPUToLLVM.dir/NvidiaPatternProtonGPUOpToLLVM.cpp.o
 ${third_party_triton_${arch}_fetch_bin}/third_party/proton/Dialect/lib/ProtonGPUToLLVM/ProtonNvidiaGPUToLLVM/CMakeFiles/ProtonNVIDIAGPUToLLVM.dir/TargetInfo.cpp.o
 ${third_party_triton_${arch}_fetch_bin}/third_party/proton/Dialect/lib/ProtonToProtonGPU/CMakeFiles/ProtonToProtonGPU.dir/ProtonToProtonGPUPass.cpp.o
-  )
-endif()
+)

@@ -1603,6 +1603,7 @@ class CodeGenerator(ast.NodeVisitor):
 
     def visit_Expr(self, node):
         node.value._is_unused = True
+        # ast.NodeVisitor.generic_visit(self, node)
         value = self.visit(node.value)
         # FlagPrism: retain the operation created by a void expression.
         _flagprism.emit_statement_event("expression", self, node, None, value)

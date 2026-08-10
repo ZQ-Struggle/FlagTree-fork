@@ -24,37 +24,15 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/include) # Tablegen'd files
 # 使用本地的 triton 文件，不需要下载（使用根目录的 triton）
 set(third_party_triton_${arch}_fetch_src "${CMAKE_SOURCE_DIR}")
 set(third_party_triton_${arch}_fetch_bin "${CMAKE_CURRENT_BINARY_DIR}/third_party_triton_${arch}_bin")
-file(GLOB_RECURSE third_party_triton_${arch}_src
-  "${CMAKE_SOURCE_DIR}/include/*"
-  "${CMAKE_SOURCE_DIR}/lib/*"
-  "${CMAKE_SOURCE_DIR}/third_party/f2reduce/*"
-)
-if(TRITON_BUILD_FLAGPRISM)
-  # FlagPrism: rebuild the nested compiler when Profiler sources change.
-  file(GLOB_RECURSE _flagtree_profiler_src
-    "${CMAKE_SOURCE_DIR}/third_party/FlagPrism/Profiler/*")
-  list(APPEND third_party_triton_${arch}_src ${_flagtree_profiler_src})
-else()
-  file(GLOB_RECURSE _proton_dialect_src
-    "${CMAKE_SOURCE_DIR}/third_party/proton/Dialect/*")
-  list(APPEND third_party_triton_${arch}_src ${_proton_dialect_src})
-endif()
+file(GLOB_RECURSE third_party_triton_${arch}_src "${CMAKE_SOURCE_DIR}/include/*" "${CMAKE_SOURCE_DIR}/lib/*" "${CMAKE_SOURCE_DIR}/third_party/f2reduce/*" "${CMAKE_SOURCE_DIR}/third_party/proton/*")
 
 include(${CMAKE_CURRENT_LIST_DIR}/triton_${arch}.cmake)
-if(TRITON_BUILD_FLAGPRISM)
-  include(
-    "${CMAKE_SOURCE_DIR}/third_party/FlagPrism/Profiler/cmake/ProtonDialectObjects.cmake")
-  flagtree_append_profiler_dialect_objects(
-    triton_${arch}_objs "${third_party_triton_${arch}_fetch_bin}")
-endif()
 
 file(MAKE_DIRECTORY ${third_party_triton_${arch}_fetch_bin})
 
 list(APPEND triton_cmake_args -DMLIR_DIR=${MLIR_DIR})
 list(APPEND triton_cmake_args -DLLVM_LIBRARY_DIR=${LLVM_LIBRARY_DIR})
 list(APPEND triton_cmake_args -DTRITON_BUILD_UT=OFF)
-list(APPEND triton_cmake_args -DTRITON_BUILD_FLAGPRISM=${TRITON_BUILD_FLAGPRISM})
-list(APPEND triton_cmake_args -DTRITON_BUILD_PROTON=${TRITON_BUILD_PROTON})
 list(APPEND triton_cmake_args -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER})
 list(APPEND triton_cmake_args -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
 list(APPEND triton_cmake_args -DCMAKE_BUILD_TYPE=Release)

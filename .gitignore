@@ -65,9 +65,6 @@ cuobjdump
 nvdisasm
 ptxas
 
-# Third-party sources downloaded by setup.py
-/third_party/FlagPrism/
-
 # Third-party include
 third_party/nvidia/backend/include
 third_party/nvidia/backend/lib/cupti

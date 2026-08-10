@@ -2,7 +2,6 @@ import os
 import platform
 import re
 import contextlib
-import runpy  # FlagPrism policy is loaded before it can be installed as a package.
 import shlex
 import shutil
 import subprocess
@@ -350,97 +349,21 @@ def get_thirdparty_packages(packages: list):
     return thirdparty_cmake_args
 
 
-class FlagPrismSetup:
-
-    def __init__(self):
-        self.project_root = Path(__file__).resolve().parent
-        self.enabled = check_env_flag("TRITON_BUILD_FLAGPRISM", "ON")
-        self.build_config = None
-
-        if not self.enabled:
-            return
-        if check_env_flag("TRITON_BUILD_PROTON"):
-            raise RuntimeError(
-                "TRITON_BUILD_FLAGPRISM and TRITON_BUILD_PROTON cannot both be enabled. "
-                "Set one of them to OFF."
-            )
-
-        # Keep the legacy Proton setup paths unchanged; selecting FlagPrism
-        # makes their existing environment checks evaluate to false.
-        os.environ["TRITON_BUILD_PROTON"] = "OFF"
-        helper.download_flagtree_third_party("flagprism", condition=True, required=True)
-
-        helper_path = self.project_root / "third_party" / "FlagPrism" / "python" / "flagprism_build.py"
-        if not helper_path.is_file():
-            raise RuntimeError(
-                "FlagPrism sources are missing. Run the Python package build "
-                "to download third-party dependencies."
-            )
-        policy = runpy.run_path(str(helper_path), run_name="_flagprism_build")
-        self.build_config = policy["create_build_config"](self.project_root)
-
-        legacy_link = self.project_root / "python" / "triton" / "profiler"
-        if legacy_link.is_symlink():
-            legacy_link.unlink()
-
-    @staticmethod
-    def _remove_path(path: Path) -> None:
-        if path.is_symlink() or path.is_file():
-            path.unlink(missing_ok=True)
-        elif path.is_dir():
-            shutil.rmtree(path)
-
-    def cmake_args(self, build_lib: str) -> list[str]:
-        if self.build_config is None:
-            return ["-DTRITON_BUILD_FLAGPRISM=OFF"]
-        return self.build_config.cmake_args(build_lib)
-
-    def dependency_cmake_args(self, build_ext) -> list[str]:
-        if not self.enabled:
-            return []
-        cmake_args = get_thirdparty_packages([get_json_package_info()])
-        cmake_args += build_ext.get_pybind11_cmake_args()
-        cupti_include_dir = get_env_with_keys(["TRITON_CUPTI_INCLUDE_PATH"])
-        if cupti_include_dir == "":
-            cupti_include_dir = os.path.join(get_base_dir(), "third_party", "nvidia", "backend", "include")
-        cmake_args += ["-DCUPTI_INCLUDE_DIR=" + cupti_include_dir]
-        roctracer_include_dir = get_env_with_keys(["TRITON_ROCTRACER_INCLUDE_PATH"])
-        if roctracer_include_dir == "":
-            roctracer_include_dir = os.path.join(get_base_dir(), "third_party", "amd", "backend", "include")
-        cmake_args += ["-DROCTRACER_INCLUDE_DIR=" + roctracer_include_dir]
-        return cmake_args
-
-    def prepare_build_tree(self, build_lib: str) -> None:
-        if self.build_config is not None:
-            self.build_config.prepare_build_tree(build_lib)
-            return
-        build_root = Path(build_lib) / "flagtree"
-        self._remove_path(build_root / "debugger")
-        self._remove_path(build_root / "profiler")
-
-    def finalize_build_tree(self, build_lib: str) -> None:
-        if self.build_config is not None:
-            self.build_config.finalize_build_tree(build_lib)
-        else:
-            self.prepare_build_tree(build_lib)
-
-    def packages(self) -> tuple[str, ...]:
-        if self.build_config is None:
-            return ()
-        return ("flagtree", *self.build_config.packages())
-
-    def package_dirs(self) -> tuple[tuple[str, str], ...]:
-        if self.build_config is None:
-            return ()
-        return self.build_config.package_dirs()
-
-    def console_scripts(self) -> list[str]:
-        if self.build_config is None:
-            return []
-        return self.build_config.console_scripts()
+def get_flagprism_dependency_cmake_args(build_ext):
+    cmake_args = get_thirdparty_packages([get_json_package_info()])
+    cmake_args += build_ext.get_pybind11_cmake_args()
+    cupti_include_dir = get_env_with_keys(["TRITON_CUPTI_INCLUDE_PATH"])
+    if cupti_include_dir == "":
+        cupti_include_dir = os.path.join(get_base_dir(), "third_party", "nvidia", "backend", "include")
+    cmake_args += ["-DCUPTI_INCLUDE_DIR=" + cupti_include_dir]
+    roctracer_include_dir = get_env_with_keys(["TRITON_ROCTRACER_INCLUDE_PATH"])
+    if roctracer_include_dir == "":
+        roctracer_include_dir = os.path.join(get_base_dir(), "third_party", "amd", "backend", "include")
+    cmake_args += ["-DROCTRACER_INCLUDE_DIR=" + roctracer_include_dir]
+    return cmake_args
 
 
-FLAGPRISM_SETUP = FlagPrismSetup()
+FLAGPRISM_SETUP = helper.FlagPrismSetup(get_base_dir(), get_flagprism_dependency_cmake_args)
 
 
 def download_and_copy(name, src_func, dst_path, variable, version, url_func):

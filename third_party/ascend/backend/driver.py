@@ -138,7 +138,7 @@ class NPULauncher(object):
         signature = {cst_key(key): value for key, value in src.signature.items()}
         wrapper_src = make_launcher(constants, signature, metadata)
         so_launcher_path = make_npu_launcher_stub(header_src, wrapper_src, metadata.debug)
-        # FlagPrism reads the compile-time hidden-argument contract at launch.
+        # FlagPrism: retain the compile-time hidden-argument contract for launch.
         self.metadata = metadata
         # setup for remote run
         # TODO: use a var to pack all vars required to run on a remote machine
@@ -570,12 +570,12 @@ def make_launcher(constants, signature, metadata):
     debug_abi = _DebuggerHiddenArgABI.from_metadata(metadata)
 
     args_format = ''.join([format_of(ty) for ty in signature.values()])
-    format = "iiiKKOOOO" + args_format + debug_abi.parse_format
+    format = "iiiKKOOOO" + args_format + debug_abi.parse_format  # FlagPrism
     signature = ','.join(map(_serialize_signature, signature.values()))
     signature = list(filter(bool, signature.split(',')))
     signature = {i: s for i, s in enumerate(signature)}
     args_list = ', ' + ', '.join(f"&_arg{i}" for i, ty in signature.items()) if len(signature) > 0 else ''
-    args_list += debug_abi.parse_argument
+    args_list += debug_abi.parse_argument  # FlagPrism
     # Record the end of regular arguments;
     # subsequent arguments are architecture-specific descriptors.
     arg_decls = ', '.join(f"{ty_to_cpp(ty)} arg{i}" for i, ty in signature.items() if ty != "constexpr")
