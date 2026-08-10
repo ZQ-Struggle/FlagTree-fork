@@ -178,8 +178,7 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
       mlir::triton::proton::ProtonDialect,
       mlir::triton::proton::gpu::ProtonGPUDialect,
 #endif
-      mlir::ROCDL::ROCDLDialect,
-      mlir::triton::gluon::GluonDialect,
+      mlir::ROCDL::ROCDLDialect, mlir::triton::gluon::GluonDialect,
       mlir::triton::ascend::TritonAscendDialect, mlir::hivm::HIVMDialect,
       mlir::scope::ScopeDialect, mlir::hacc::HACCDialect,
       mlir::annotation::AnnotationDialect, mlir::hfusion::HFusionDialect,

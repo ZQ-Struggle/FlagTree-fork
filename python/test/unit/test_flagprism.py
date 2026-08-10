@@ -12,17 +12,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from python.setup_tools import setup_helper  # noqa: E402
-from flagtree import _flagprism
+from flagtree import _flagprism  # noqa: E402
 
 
 def _load_build_helper():
-    path = (
-        Path(__file__).resolve().parents[3]
-        / "third_party"
-        / "FlagPrism"
-        / "python"
-        / "flagprism_build.py"
-    )
+    path = (Path(__file__).resolve().parents[3] / "third_party" / "FlagPrism" / "python" / "flagprism_build.py")
     if not path.is_file():
         pytest.skip("FlagPrism sources are not available")
     spec = importlib.util.spec_from_file_location("_test_flagprism_build", path)
@@ -115,9 +109,7 @@ def test_language_extensions_forward_to_registered_component():
     calls = []
     component = _component(
         "debugger",
-        debug_collect_start=lambda semantic, level, addr_level: calls.append(
-            ("start", semantic, level, addr_level)
-        ),
+        debug_collect_start=lambda semantic, level, addr_level: calls.append(("start", semantic, level, addr_level)),
         debug_collect_end=lambda semantic: calls.append(("end", semantic)),
     )
     _flagprism.register_component("debugger", component)
@@ -136,9 +128,8 @@ def test_language_extensions_forward_to_registered_component():
     "component",
     ("debugger", "profiler"),
 )
-def test_missing_component_has_build_instruction(
-    monkeypatch, component
-):
+def test_missing_component_has_build_instruction(monkeypatch, component):
+
     def missing(name):
         raise ModuleNotFoundError(name=name)
 
@@ -175,9 +166,7 @@ def test_build_helper_uses_unified_switch(build_helper, monkeypatch, tmp_path, v
         ("mthreads", False),
     ),
 )
-def test_flagprism_is_enabled_by_default_only_for_ascend(
-    flagprism_setup_factory, monkeypatch, backend, enabled
-):
+def test_flagprism_is_enabled_by_default_only_for_ascend(flagprism_setup_factory, monkeypatch, backend, enabled):
     create, downloads = flagprism_setup_factory
     monkeypatch.delenv("TRITON_BUILD_FLAGPRISM", raising=False)
     monkeypatch.delenv("TRITON_BUILD_PROTON", raising=False)
@@ -186,9 +175,7 @@ def test_flagprism_is_enabled_by_default_only_for_ascend(
 
     assert policy.enabled is enabled
     assert bool(downloads) is enabled
-    assert policy.cmake_args("build") == [
-        "-DTRITON_BUILD_FLAGPRISM=" + ("ON" if enabled else "OFF")
-    ]
+    assert policy.cmake_args("build") == ["-DTRITON_BUILD_FLAGPRISM=" + ("ON" if enabled else "OFF")]
     if enabled:
         assert setup_helper.os.environ["TRITON_BUILD_PROTON"] == "OFF"
     else:
@@ -199,9 +186,7 @@ def test_flagprism_is_enabled_by_default_only_for_ascend(
         assert policy.console_scripts() == []
 
 
-def test_ascend_can_explicitly_disable_flagprism_without_changing_proton(
-    flagprism_setup_factory, monkeypatch
-):
+def test_ascend_can_explicitly_disable_flagprism_without_changing_proton(flagprism_setup_factory, monkeypatch):
     create, downloads = flagprism_setup_factory
     monkeypatch.setenv("TRITON_BUILD_FLAGPRISM", "OFF")
     monkeypatch.setenv("TRITON_BUILD_PROTON", "ON")
@@ -213,9 +198,7 @@ def test_ascend_can_explicitly_disable_flagprism_without_changing_proton(
     assert setup_helper.os.environ["TRITON_BUILD_PROTON"] == "ON"
 
 
-def test_non_ascend_explicit_flagprism_is_rejected_before_side_effects(
-    flagprism_setup_factory, monkeypatch
-):
+def test_non_ascend_explicit_flagprism_is_rejected_before_side_effects(flagprism_setup_factory, monkeypatch):
     create, downloads = flagprism_setup_factory
     monkeypatch.setenv("TRITON_BUILD_FLAGPRISM", "ON")
     monkeypatch.setenv("TRITON_BUILD_PROTON", "ON")
@@ -227,9 +210,7 @@ def test_non_ascend_explicit_flagprism_is_rejected_before_side_effects(
     assert setup_helper.os.environ["TRITON_BUILD_PROTON"] == "ON"
 
 
-def test_ascend_rejects_flagprism_and_proton_together(
-    flagprism_setup_factory, monkeypatch
-):
+def test_ascend_rejects_flagprism_and_proton_together(flagprism_setup_factory, monkeypatch):
     create, downloads = flagprism_setup_factory
     monkeypatch.delenv("TRITON_BUILD_FLAGPRISM", raising=False)
     monkeypatch.setenv("TRITON_BUILD_PROTON", "ON")
@@ -241,16 +222,12 @@ def test_ascend_rejects_flagprism_and_proton_together(
     assert setup_helper.os.environ["TRITON_BUILD_PROTON"] == "ON"
 
 
-def test_reused_build_tree_drops_legacy_triton_gateway(
-    flagprism_setup_factory, tmp_path
-):
+def test_reused_build_tree_drops_legacy_triton_gateway(flagprism_setup_factory, tmp_path):
     create, _ = flagprism_setup_factory
     policy = create(None)
     build_lib = tmp_path / "build-lib"
     legacy_module = build_lib / "triton" / "_flagprism.py"
-    legacy_cache = (
-        build_lib / "triton" / "__pycache__" / "_flagprism.cpython-311.pyc"
-    )
+    legacy_cache = (build_lib / "triton" / "__pycache__" / "_flagprism.cpython-311.pyc")
     for path in (legacy_module, legacy_cache):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"stale")
@@ -305,12 +282,10 @@ def test_component_compatibility_uses_capabilities_not_core_series():
 
 
 def test_missing_host_capability_is_rejected():
-    component = _component(
-        "debugger", required_capabilities={"runtime.future_adapter.v1"}
-    )
+    component = _component("debugger", required_capabilities={"runtime.future_adapter.v1"})
     with pytest.raises(
-        _flagprism.ComponentCompatibilityError,
-        match="runtime.future_adapter.v1",
+            _flagprism.ComponentCompatibilityError,
+            match="runtime.future_adapter.v1",
     ):
         _flagprism.register_component("debugger", component)
 
@@ -319,9 +294,7 @@ def test_optional_hooks_are_noops_until_a_component_registers():
     events = []
     component = _component(
         "debugger",
-        apply_compile_options=lambda options: options.update(
-            instrumentation_mode="debug"
-        ),
+        apply_compile_options=lambda options: options.update(instrumentation_mode="debug"),
         on_compiler_event=events.append,
         on_statement_event=events.append,
     )
@@ -347,9 +320,7 @@ def test_optional_hooks_are_noops_until_a_component_registers():
         builder="builder",
         jit_fn=SimpleNamespace(src="result = value"),
     )
-    _flagprism.emit_statement_event(
-        "assignment", generator, node, node.targets[0], "value"
-    )
+    _flagprism.emit_statement_event("assignment", generator, node, node.targets[0], "value")
 
     assert options == {"instrumentation_mode": "debug"}
     compiler_event, statement_event = events
@@ -364,20 +335,16 @@ def test_optional_hooks_are_noops_until_a_component_registers():
     assert statement_event.source == "result = value"
     assert statement_event.statement_id == 21000
     assert statement_event.builder == "builder"
-    assert statement_event.results == (
-        _flagprism.StatementResult(name="result", value="value"),
-    )
+    assert statement_event.results == (_flagprism.StatementResult(name="result", value="value"), )
 
 
 def test_statement_normalization_is_skipped_without_a_consumer():
     _flagprism.register_component("profiler", _component("profiler"))
-    _flagprism.emit_statement_event(
-        "assignment", "not-a-generator", "not-an-ast-node", None, "value"
-    )
+    _flagprism.emit_statement_event("assignment", "not-a-generator", "not-an-ast-node", None, "value")
 
 
 def test_required_backend_neutral_launch_context_is_forwarded():
-    context = nullcontext((123,))
+    context = nullcontext((123, ))
     events = []
 
     def launch_context(event):
@@ -390,9 +357,7 @@ def test_required_backend_neutral_launch_context_is_forwarded():
     )
     _flagprism.register_component("debugger", component)
 
-    result = _flagprism.debugger_launch_context(
-        "CANN", "metadata", (1, 2, 3), "stream", "launch_metadata", ("arg",)
-    )
+    result = _flagprism.debugger_launch_context("CANN", "metadata", (1, 2, 3), "stream", "launch_metadata", ("arg", ))
     assert result is context
     assert events == [
         _flagprism.LaunchEvent(
@@ -401,7 +366,7 @@ def test_required_backend_neutral_launch_context_is_forwarded():
             grid=(1, 2, 3),
             stream="stream",
             launch_metadata="launch_metadata",
-            kernel_args=("arg",),
+            kernel_args=("arg", ),
         )
     ]
 
@@ -425,11 +390,11 @@ def test_build_tree_cleanup_prevents_split_wheel_artifacts(build_helper, tmp_pat
     )
 
     for path in (
-        triton_root / "debugger" / "old.py",
-        build_lib / "flagtree_debugger" / "old.py",
-        flagtree_root / "debugger" / "old.py",
-        native_root / "libproton.so",
-        cache_root / "_components.cpython-311.pyc",
+            triton_root / "debugger" / "old.py",
+            build_lib / "flagtree_debugger" / "old.py",
+            flagtree_root / "debugger" / "old.py",
+            native_root / "libproton.so",
+            cache_root / "_components.cpython-311.pyc",
     ):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"stale")
@@ -439,22 +404,20 @@ def test_build_tree_cleanup_prevents_split_wheel_artifacts(build_helper, tmp_pat
     assert not (flagtree_root / "debugger").exists()
     assert not list(native_root.glob("libproton*"))
 
-    expected_native = flagtree_root / "profiler" / (
-        "_native" + (sysconfig.get_config_var("EXT_SUFFIX") or ".so")
-    )
+    expected_native = flagtree_root / "profiler" / ("_native" + (sysconfig.get_config_var("EXT_SUFFIX") or ".so"))
     if enabled:
         for path in (
-            flagtree_root / "debugger" / "__init__.py",
-            flagtree_root / "profiler" / "__init__.py",
-            expected_native,
+                flagtree_root / "debugger" / "__init__.py",
+                flagtree_root / "profiler" / "__init__.py",
+                expected_native,
         ):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b"current")
 
     # build_py can copy these stale source-tree files after CMake completes.
     for path in (
-        native_root / "libproton.so",
-        cache_root / "_components.cpython-311.pyc",
+            native_root / "libproton.so",
+            cache_root / "_components.cpython-311.pyc",
     ):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"stale")

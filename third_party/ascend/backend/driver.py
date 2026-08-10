@@ -168,16 +168,14 @@ class NPULauncher(object):
                 # FlagPrism: use the backend-neutral launch gateway; this
                 # backend only supplies its name and launch state.
                 with _flagprism.debugger_launch_context(
-                    "ascend",
-                    self.metadata,
-                    args[:3],
-                    args[3],
-                    args[6],
-                    args[9:],
+                        "ascend",
+                        self.metadata,
+                        args[:3],
+                        args[3],
+                        args[6],
+                        args[9:],
                 ) as hidden_args:
-                    profiler_registered = self.launch(
-                        *args, *hidden_args, **kwargs
-                    )
+                    profiler_registered = self.launch(*args, *hidden_args, **kwargs)
             else:
                 profiler_registered = self.launch(*args, **kwargs)
             import triton

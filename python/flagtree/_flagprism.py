@@ -13,20 +13,17 @@ from importlib import import_module
 from threading import RLock
 from typing import Any
 
-
 # This version describes the host/component protocol, not a FlagTree release.
 # Minor revisions are backward compatible; capabilities describe optional hooks.
 HOST_API_VERSION = (2, 0)
-HOST_CAPABILITIES = frozenset(
-    {
-        "compiler.dialects.v1",
-        "compiler.events.v1",
-        "compiler.options.v1",
-        "frontend.statement_events.v1",
-        "language.debug_collect.v1",
-        "runtime.launch_context.v1",
-    }
-)
+HOST_CAPABILITIES = frozenset({
+    "compiler.dialects.v1",
+    "compiler.events.v1",
+    "compiler.options.v1",
+    "frontend.statement_events.v1",
+    "language.debug_collect.v1",
+    "runtime.launch_context.v1",
+})
 _COMPONENT_MODULES = {
     "debugger": "flagtree.debugger",
     "profiler": "flagtree.profiler",
@@ -102,19 +99,13 @@ def _api_version(value: Any) -> tuple[int, int]:
         try:
             parts = tuple(value)
         except TypeError as error:
-            raise ComponentCompatibilityError(
-                f"invalid FlagPrism API version {value!r}"
-            ) from error
+            raise ComponentCompatibilityError(f"invalid FlagPrism API version {value!r}") from error
     if len(parts) not in {1, 2}:
-        raise ComponentCompatibilityError(
-            f"invalid FlagPrism API version {value!r}"
-        )
+        raise ComponentCompatibilityError(f"invalid FlagPrism API version {value!r}")
     try:
         return int(parts[0]), int(parts[1]) if len(parts) == 2 else 0
     except (TypeError, ValueError) as error:
-        raise ComponentCompatibilityError(
-            f"invalid FlagPrism API version {value!r}"
-        ) from error
+        raise ComponentCompatibilityError(f"invalid FlagPrism API version {value!r}") from error
 
 
 def _capabilities(value: Any) -> frozenset[str]:
@@ -125,40 +116,30 @@ def _capabilities(value: Any) -> frozenset[str]:
     try:
         return frozenset(str(capability) for capability in value)
     except TypeError as error:
-        raise ComponentCompatibilityError(
-            f"invalid FlagPrism capability list {value!r}"
-        ) from error
+        raise ComponentCompatibilityError(f"invalid FlagPrism capability list {value!r}") from error
 
 
 def _module_name(name: str) -> str:
     try:
         return _COMPONENT_MODULES[name]
     except KeyError as error:
-        raise ComponentCompatibilityError(
-            f"unsupported FlagPrism component {name!r}"
-        ) from error
+        raise ComponentCompatibilityError(f"unsupported FlagPrism component {name!r}") from error
 
 
 def _validate_component(name: str, component: Any) -> Any:
     actual_name = str(getattr(component, "name", ""))
     if actual_name != name:
-        raise ComponentCompatibilityError(
-            f"FlagPrism component {name!r} returned {actual_name!r}"
-        )
+        raise ComponentCompatibilityError(f"FlagPrism component {name!r} returned {actual_name!r}")
     api_version = _api_version(getattr(component, "api_version", (-1, 0)))
     if api_version[0] != HOST_API_VERSION[0] or api_version > HOST_API_VERSION:
-        raise ComponentCompatibilityError(
-            f"FlagTree {name} API mismatch: host={HOST_API_VERSION}, "
-            f"component={api_version}. Use a matching FlagPrism submodule revision."
-        )
+        raise ComponentCompatibilityError(f"FlagTree {name} API mismatch: host={HOST_API_VERSION}, "
+                                          f"component={api_version}. Use a matching FlagPrism submodule revision.")
     required = _capabilities(getattr(component, "required_capabilities", ()))
     missing = required - HOST_CAPABILITIES
     if missing:
         missing_names = ", ".join(sorted(missing))
-        raise ComponentCompatibilityError(
-            f"FlagTree {name} requires unsupported host capabilities: "
-            f"{missing_names}"
-        )
+        raise ComponentCompatibilityError(f"FlagTree {name} requires unsupported host capabilities: "
+                                          f"{missing_names}")
     return component
 
 
@@ -168,9 +149,7 @@ def register_component(name: str, component: Any) -> Any:
     with _lock:
         current = _components.get(name)
         if current is not None and current is not component:
-            raise ComponentCompatibilityError(
-                f"FlagPrism component {name!r} is already loaded"
-            )
+            raise ComponentCompatibilityError(f"FlagPrism component {name!r} is already loaded")
         _components[name] = component
     return component
 
@@ -187,11 +166,9 @@ def load_component(name: str, *, required: bool = True) -> Any | None:
                 raise
             if not required:
                 return None
-            raise ComponentNotInstalledError(
-                f"FlagTree {name} is not included in this build. Rebuild FlagTree "
-                "with its FlagPrism submodule initialized and "
-                f"`{_COMPONENT_BUILD_OPTION}=ON`."
-            ) from None
+            raise ComponentNotInstalledError(f"FlagTree {name} is not included in this build. Rebuild FlagTree "
+                                             "with its FlagPrism submodule initialized and "
+                                             f"`{_COMPONENT_BUILD_OPTION}=ON`.") from None
         return register_component(name, getattr(module, "component", module))
 
 
@@ -201,11 +178,8 @@ def _registered_components() -> tuple[Any, ...]:
 
 
 def _registered_callbacks(method: str) -> tuple[Any, ...]:
-    return tuple(
-        callback
-        for component in _registered_components()
-        if callable(callback := getattr(component, method, None))
-    )
+    return tuple(callback for component in _registered_components()
+                 if callable(callback := getattr(component, method, None)))
 
 
 def _call_registered(method: str, *args: Any) -> None:
@@ -217,9 +191,7 @@ def _call_required(name: str, method: str, *args: Any):
     component = load_component(name)
     callback = getattr(component, method, None)
     if not callable(callback):
-        raise ComponentCompatibilityError(
-            f"FlagTree {name} does not implement required callback {method!r}"
-        )
+        raise ComponentCompatibilityError(f"FlagTree {name} does not implement required callback {method!r}")
     return callback(*args)
 
 
@@ -240,9 +212,7 @@ def _metadata_backend(metadata: dict[str, Any]) -> str:
     return str(backend or "").lower()
 
 
-def emit_compiler_event(
-    *, phase: str, ir_kind: str, module: Any, metadata: dict[str, Any]
-) -> None:
+def emit_compiler_event(*, phase: str, ir_kind: str, module: Any, metadata: dict[str, Any]) -> None:
     callbacks = _registered_callbacks("on_compiler_event")
     if not callbacks:
         return
@@ -280,7 +250,7 @@ def _statement_id(generator: Any, node: ast.AST) -> int:
 
 def _assignment_results(target: ast.AST, value: Any) -> tuple[StatementResult, ...]:
     if isinstance(target, ast.Name):
-        return (StatementResult(target.id, value),)
+        return (StatementResult(target.id, value), )
     if isinstance(target, ast.Tuple):
         values = getattr(value, "values", ())
         results = []
@@ -290,16 +260,14 @@ def _assignment_results(target: ast.AST, value: Any) -> tuple[StatementResult, .
     return ()
 
 
-def emit_statement_event(
-    kind: str, generator: Any, node: Any, target: Any, value: Any
-) -> None:
+def emit_statement_event(kind: str, generator: Any, node: Any, target: Any, value: Any) -> None:
     callbacks = _registered_callbacks("on_statement_event")
     if not callbacks:
         return
     if kind == "assignment":
         results = () if target is None else _assignment_results(target, value)
     elif kind == "expression":
-        results = (StatementResult(None, value),)
+        results = (StatementResult(None, value), )
     else:
         raise ValueError(f"unsupported statement metadata event: {kind}")
     event = StatementEvent(
@@ -314,9 +282,7 @@ def emit_statement_event(
 
 
 def debug_collect_start(semantic: Any, level: Any, addr_level: Any):
-    return _call_required(
-        "debugger", "debug_collect_start", semantic, level, addr_level
-    )
+    return _call_required("debugger", "debug_collect_start", semantic, level, addr_level)
 
 
 def debug_collect_end(semantic: Any):

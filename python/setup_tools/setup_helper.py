@@ -107,17 +107,13 @@ class FlagPrismSetup:
         self._dependency_cmake_args = dependency_cmake_args
 
         if self.enabled and backend != "ascend":
-            raise RuntimeError(
-                "TRITON_BUILD_FLAGPRISM is only supported when "
-                "FLAGTREE_BACKEND=ascend on triton_v3.5.x."
-            )
+            raise RuntimeError("TRITON_BUILD_FLAGPRISM is only supported when "
+                               "FLAGTREE_BACKEND=ascend on triton_v3.5.x.")
         if not self.enabled:
             return
         if self._check_env_flag("TRITON_BUILD_PROTON"):
-            raise RuntimeError(
-                "TRITON_BUILD_FLAGPRISM and TRITON_BUILD_PROTON cannot both be enabled. "
-                "Set one of them to OFF."
-            )
+            raise RuntimeError("TRITON_BUILD_FLAGPRISM and TRITON_BUILD_PROTON cannot both be enabled. "
+                               "Set one of them to OFF.")
 
         # FlagPrism replaces Proton only for the supported Ascend build.
         os.environ["TRITON_BUILD_PROTON"] = "OFF"
@@ -125,10 +121,8 @@ class FlagPrismSetup:
 
         helper_path = self.project_root / "third_party" / "FlagPrism" / "python" / "flagprism_build.py"
         if not helper_path.is_file():
-            raise RuntimeError(
-                "FlagPrism sources are missing. Run the Python package build "
-                "to download third-party dependencies."
-            )
+            raise RuntimeError("FlagPrism sources are missing. Run the Python package build "
+                               "to download third-party dependencies.")
         policy = runpy.run_path(str(helper_path), run_name="_flagprism_build")
         self.build_config = policy["create_build_config"](self.project_root)
 
