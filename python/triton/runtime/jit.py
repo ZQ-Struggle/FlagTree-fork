@@ -15,8 +15,7 @@ from typing import Callable, Generic, Iterable, Optional, TypeVar, Union, overlo
 from triton.tools.tensor_descriptor import TensorDescriptor
 from types import ModuleType
 from .. import knobs
-# FlagPrism: use the core no-op gateway; optional tools remain lazily loaded.
-from flagtree import _flagprism
+from flagtree import _flagprism  # FlagPrism
 from .driver import driver
 from . import _async_compile
 from .._utils import find_paths_if, get_iterable_path, type_canonicalisation_dict, canonicalize_dtype

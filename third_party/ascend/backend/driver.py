@@ -30,7 +30,7 @@ from typing import Optional
 import functools
 import hashlib
 
-from flagtree import _flagprism
+from flagtree import _flagprism  # FlagPrism
 from triton.runtime.cache import get_cache_manager, get_dump_manager
 from triton.backends.driver import DriverBase
 from triton.backends.compiler import GPUTarget
@@ -138,8 +138,7 @@ class NPULauncher(object):
         signature = {cst_key(key): value for key, value in src.signature.items()}
         wrapper_src = make_launcher(constants, signature, metadata)
         so_launcher_path = make_npu_launcher_stub(header_src, wrapper_src, metadata.debug)
-        # FlagPrism: retain the compile-time hidden-argument contract for launch.
-        self.metadata = metadata
+        self.metadata = metadata  # FlagPrism
         # setup for remote run
         # TODO: use a var to pack all vars required to run on a remote machine
         self.mix_mode = metadata.mix_mode
@@ -565,9 +564,7 @@ def make_launcher(constants, signature, metadata):
         PyObject* launch_enter_hook, *launch_exit_hook;
         *args_expand
     """
-    # FlagPrism: keep every generated hidden-argument ABI fragment in
-    # one object so the normal launcher template remains auditable.
-    debug_abi = _DebuggerHiddenArgABI.from_metadata(metadata)
+    debug_abi = _DebuggerHiddenArgABI.from_metadata(metadata)  # FlagPrism
 
     args_format = ''.join([format_of(ty) for ty in signature.values()])
     format = "iiiKKOOOO" + args_format + debug_abi.parse_format  # FlagPrism
@@ -922,8 +919,7 @@ static void _launch(const char* kernelName, const void* func, rtStream_t stream,
       {(lambda _rt: (', '.join(_rt) + ',') if _rt else '')(
         [f'static_cast<{ty_to_cpp(ty)}>(arg{i})' for i, ty in signature.items() if i not in constants and ty != "constexpr"]
       )}
-      // FlagPrism: initialize the optional pointer in its packed ABI slot.
-      {debug_abi.struct_value}
+      {debug_abi.struct_value}  // FlagPrism
       {', '.join(f'static_cast<{ty_to_cpp(ty)}>(grid{mark})' for mark, ty in grid_info.items())}
       {', static_cast<void*>(DTData)' if enable_device_print else ''}
     }};

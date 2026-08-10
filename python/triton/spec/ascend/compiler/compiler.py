@@ -7,8 +7,7 @@ from ..backends import backends
 from ..backends.compiler import Language
 from ..backends.compiler import BaseBackend, GPUTarget
 from .. import __version__, knobs
-# FlagPrism: mirror the core no-op gateway in the Ascend compiler.
-from flagtree import _flagprism
+from flagtree import _flagprism  # FlagPrism
 from ..runtime.autotuner import OutOfResources
 from ..runtime.cache import get_cache_manager, get_dump_manager, get_override_manager, get_cache_key
 from ..runtime.driver import driver
