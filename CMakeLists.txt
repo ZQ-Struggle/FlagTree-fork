@@ -100,25 +100,26 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 # Options
 option(TRITON_BUILD_PYTHON_MODULE "Build Python Triton bindings" OFF)
 if(FLAGTREE_BACKEND)
-  set(_flagprism_default OFF)
+  option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" OFF)
+  option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" OFF)
 else()
+  option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" ON)
+  option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" ON)
+endif()
+
+# FlagPrism is integrated only for Ascend on triton_v3.5.x.
+set(_flagprism_default OFF)
+if(FLAGTREE_BACKEND STREQUAL "ascend")
   set(_flagprism_default ON)
 endif()
 option(TRITON_BUILD_FLAGPRISM
        "Build the FlagPrism debugger and profiler"
        ${_flagprism_default})
 
-# Keep the original Proton defaults when FlagPrism is not the selected
-# profiler provider. A configure may select at most one full profiler runtime.
-if(FLAGTREE_BACKEND OR TRITON_BUILD_FLAGPRISM)
-  option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" OFF)
-else()
-  option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" ON)
-endif()
-if(FLAGTREE_BACKEND)
-  option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" OFF)
-else()
-  option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" ON)
+if(TRITON_BUILD_FLAGPRISM AND NOT FLAGTREE_BACKEND STREQUAL "ascend")
+  message(FATAL_ERROR
+    "TRITON_BUILD_FLAGPRISM is only supported when "
+    "FLAGTREE_BACKEND=ascend on triton_v3.5.x.")
 endif()
 
 if(TRITON_BUILD_FLAGPRISM AND TRITON_BUILD_PROTON)
@@ -127,8 +128,6 @@ if(TRITON_BUILD_FLAGPRISM AND TRITON_BUILD_PROTON)
     "Select exactly one profiler implementation.")
 endif()
 
-# Load FlagPrism only when it is the selected provider. Legacy and core-only
-# builds must not depend on the downloaded source tree.
 if(TRITON_BUILD_FLAGPRISM)
   set(FLAGPRISM_CMAKE_FILE
       "${CMAKE_CURRENT_SOURCE_DIR}/third_party/FlagPrism/cmake/FlagPrism.cmake")
@@ -142,8 +141,6 @@ if(TRITON_BUILD_FLAGPRISM)
   endif()
 endif()
 
-# Keep profiler-provider selection in one place while allowing each provider
-# to be added at the lifecycle point required by its targets.
 macro(flagtree_add_flagprism_components)
   if(TRITON_BUILD_FLAGPRISM)
     flagprism_add_components()

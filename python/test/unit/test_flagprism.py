@@ -8,6 +8,10 @@ from types import SimpleNamespace
 
 import pytest
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from python.setup_tools import setup_helper  # noqa: E402
 from triton import _flagprism
 
 
@@ -19,6 +23,8 @@ def _load_build_helper():
         / "python"
         / "flagprism_build.py"
     )
+    if not path.is_file():
+        pytest.skip("FlagPrism sources are not available")
     spec = importlib.util.spec_from_file_location("_test_flagprism_build", path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -26,7 +32,42 @@ def _load_build_helper():
     return module
 
 
-_build_helper = _load_build_helper()
+@pytest.fixture
+def build_helper():
+    return _load_build_helper()
+
+
+@pytest.fixture
+def flagprism_setup_factory(monkeypatch, tmp_path):
+    helper_path = tmp_path / "third_party" / "FlagPrism" / "python" / "flagprism_build.py"
+    helper_path.parent.mkdir(parents=True)
+    helper_path.touch()
+
+    downloads = []
+    build_config = SimpleNamespace(
+        cmake_args=lambda build_lib: ["-DTRITON_BUILD_FLAGPRISM=ON"],
+        packages=lambda: ("flagtree.debugger", "flagtree.profiler"),
+        package_dirs=lambda: (),
+        console_scripts=lambda: [],
+    )
+    monkeypatch.setattr(
+        setup_helper,
+        "download_flagtree_third_party",
+        lambda *args, **kwargs: downloads.append((args, kwargs)),
+    )
+    monkeypatch.setattr(
+        setup_helper.runpy,
+        "run_path",
+        lambda *args, **kwargs: {
+            "create_build_config": lambda project_root: build_config,
+        },
+    )
+
+    def create(backend):
+        monkeypatch.setattr(setup_helper.configs, "flagtree_backend", backend)
+        return setup_helper.FlagPrismSetup(tmp_path, lambda build_ext: ["dependency"])
+
+    return create, downloads
 
 
 @pytest.fixture(autouse=True)
@@ -76,14 +117,93 @@ def test_missing_component_has_build_instruction(
     ("value", "enabled"),
     ((None, True), ("ON", True), ("OFF", False)),
 )
-def test_build_helper_uses_unified_switch(monkeypatch, tmp_path, value, enabled):
+def test_build_helper_uses_unified_switch(build_helper, monkeypatch, tmp_path, value, enabled):
     if value is None:
         monkeypatch.delenv("TRITON_BUILD_FLAGPRISM", raising=False)
     else:
         monkeypatch.setenv("TRITON_BUILD_FLAGPRISM", value)
 
-    config = _build_helper.FlagPrismBuildConfig.from_environment(tmp_path)
+    config = build_helper.FlagPrismBuildConfig.from_environment(tmp_path)
     assert config.enabled is enabled
+
+
+@pytest.mark.parametrize(
+    ("backend", "enabled"),
+    (
+        (None, False),
+        ("ascend", True),
+        ("enflame", False),
+        ("tsingmicro", False),
+        ("cambricon", False),
+        ("aipu", False),
+        ("xpu", False),
+        ("mthreads", False),
+    ),
+)
+def test_flagprism_is_enabled_by_default_only_for_ascend(
+    flagprism_setup_factory, monkeypatch, backend, enabled
+):
+    create, downloads = flagprism_setup_factory
+    monkeypatch.delenv("TRITON_BUILD_FLAGPRISM", raising=False)
+    monkeypatch.delenv("TRITON_BUILD_PROTON", raising=False)
+
+    policy = create(backend)
+
+    assert policy.enabled is enabled
+    assert bool(downloads) is enabled
+    assert policy.cmake_args("build") == [
+        "-DTRITON_BUILD_FLAGPRISM=" + ("ON" if enabled else "OFF")
+    ]
+    if enabled:
+        assert setup_helper.os.environ["TRITON_BUILD_PROTON"] == "OFF"
+    else:
+        assert "TRITON_BUILD_PROTON" not in setup_helper.os.environ
+        assert policy.dependency_cmake_args(object()) == []
+        assert policy.packages() == ()
+        assert policy.package_dirs() == ()
+        assert policy.console_scripts() == []
+
+
+def test_ascend_can_explicitly_disable_flagprism_without_changing_proton(
+    flagprism_setup_factory, monkeypatch
+):
+    create, downloads = flagprism_setup_factory
+    monkeypatch.setenv("TRITON_BUILD_FLAGPRISM", "OFF")
+    monkeypatch.setenv("TRITON_BUILD_PROTON", "ON")
+
+    policy = create("ascend")
+
+    assert not policy.enabled
+    assert not downloads
+    assert setup_helper.os.environ["TRITON_BUILD_PROTON"] == "ON"
+
+
+def test_non_ascend_explicit_flagprism_is_rejected_before_side_effects(
+    flagprism_setup_factory, monkeypatch
+):
+    create, downloads = flagprism_setup_factory
+    monkeypatch.setenv("TRITON_BUILD_FLAGPRISM", "ON")
+    monkeypatch.setenv("TRITON_BUILD_PROTON", "ON")
+
+    with pytest.raises(RuntimeError, match="FLAGTREE_BACKEND=ascend"):
+        create("enflame")
+
+    assert not downloads
+    assert setup_helper.os.environ["TRITON_BUILD_PROTON"] == "ON"
+
+
+def test_ascend_rejects_flagprism_and_proton_together(
+    flagprism_setup_factory, monkeypatch
+):
+    create, downloads = flagprism_setup_factory
+    monkeypatch.delenv("TRITON_BUILD_FLAGPRISM", raising=False)
+    monkeypatch.setenv("TRITON_BUILD_PROTON", "ON")
+
+    with pytest.raises(RuntimeError, match="cannot both be enabled"):
+        create("ascend")
+
+    assert not downloads
+    assert setup_helper.os.environ["TRITON_BUILD_PROTON"] == "ON"
 
 
 def test_known_component_is_loaded_once(monkeypatch):
@@ -237,13 +357,13 @@ def test_unknown_components_are_rejected():
 
 
 @pytest.mark.parametrize("enabled", (True, False))
-def test_build_tree_cleanup_prevents_split_wheel_artifacts(tmp_path, enabled):
+def test_build_tree_cleanup_prevents_split_wheel_artifacts(build_helper, tmp_path, enabled):
     build_lib = tmp_path / "build-lib"
     triton_root = build_lib / "triton"
     flagtree_root = build_lib / "flagtree"
     native_root = triton_root / "_C"
     cache_root = triton_root / "__pycache__"
-    config = _build_helper.FlagPrismBuildConfig(
+    config = build_helper.FlagPrismBuildConfig(
         enabled=enabled,
         relative_root=Path("third_party/FlagPrism"),
         root=tmp_path / "FlagPrism",

@@ -81,25 +81,8 @@ test-flagprism: all
 	$(PYTEST) -s -n 8 third_party/FlagPrism/Profiler/test --ignore=third_party/FlagPrism/Profiler/test/test_override.py
 	$(PYTEST) -s third_party/FlagPrism/Profiler/test/test_override.py
 
-ifeq ($(TRITON_BUILD_FLAGPRISM),OFF)
-ifeq ($(TRITON_BUILD_PROTON),OFF)
-PROFILER_TEST_TARGET := test-profiler-disabled
-else
-PROFILER_TEST_TARGET := test-proton
-endif
-else
-PROFILER_TEST_TARGET := test-flagprism
-endif
-
-.PHONY: test-profiler-disabled
-test-profiler-disabled: all
-	@echo "Profiler tests skipped: both profiler runtimes are disabled."
-
-.PHONY: test-profiler
-test-profiler: $(PROFILER_TEST_TARGET)
-
 .PHONY: test-python
-test-python: test-unit test-regression test-interpret test-profiler
+test-python: test-unit test-regression test-interpret test-proton
 
 .PHONY: test-nogpu
 test-nogpu: test-lit test-cpp

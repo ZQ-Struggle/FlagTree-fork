@@ -100,10 +100,17 @@ class FlagPrismSetup:
 
     def __init__(self, project_root, dependency_cmake_args):
         self.project_root = Path(project_root)
-        self.enabled = self._check_env_flag("TRITON_BUILD_FLAGPRISM", "ON")
+        backend = configs.flagtree_backend or ""
+        default = "ON" if backend == "ascend" else "OFF"
+        self.enabled = self._check_env_flag("TRITON_BUILD_FLAGPRISM", default)
         self.build_config = None
         self._dependency_cmake_args = dependency_cmake_args
 
+        if self.enabled and backend != "ascend":
+            raise RuntimeError(
+                "TRITON_BUILD_FLAGPRISM is only supported when "
+                "FLAGTREE_BACKEND=ascend on triton_v3.5.x."
+            )
         if not self.enabled:
             return
         if self._check_env_flag("TRITON_BUILD_PROTON"):
@@ -112,8 +119,7 @@ class FlagPrismSetup:
                 "Set one of them to OFF."
             )
 
-        # Keep the legacy Proton setup paths unchanged; selecting FlagPrism
-        # makes their existing environment checks evaluate to false.
+        # FlagPrism replaces Proton only for the supported Ascend build.
         os.environ["TRITON_BUILD_PROTON"] = "OFF"
         download_flagtree_third_party("flagprism", condition=True, required=True)
 
