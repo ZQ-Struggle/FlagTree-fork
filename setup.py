@@ -696,7 +696,7 @@ def get_package_dirs():
 
 
 def get_packages():
-    yield from find_packages(where="python", include=["triton", "triton.*"])
+    yield from find_packages(where="python", include=["triton", "triton.*", "flagtree", "flagtree.*"])
     yield from FLAGPRISM_SETUP.packages()
 
     for backend in backends:

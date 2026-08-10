@@ -18,7 +18,7 @@ from triton.extension.buffer.language.builder import setup_unified_builder_with_
 
 from .. import knobs, language
 # FlagPrism: mirror the core no-op gateway in the Ascend frontend.
-from .. import _flagprism
+from flagtree import _flagprism
 from .._C.libtriton import ir, gluon_ir, buffer_ir
 from .._C.libtriton.ascend import ir as ascend_ir
 from ..language import constexpr, str_to_ty, tensor, tuple as tl_tuple

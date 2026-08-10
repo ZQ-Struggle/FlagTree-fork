@@ -1,4 +1,4 @@
-"""Integration boundary between FlagTree core and bundled FlagPrism.
+"""Integration boundary between FlagTree core and FlagPrism components.
 
 Core compiler and runtime code must use this module instead of importing the
 Debugger or Profiler implementations directly. Optional callbacks are no-ops

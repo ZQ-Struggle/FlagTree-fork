@@ -33,7 +33,7 @@ from types import ModuleType
 from typing import Any, Dict, Optional, Tuple, Union
 
 # FlagPrism: use the core no-op gateway at the Ascend serialization boundary.
-from triton import _flagprism
+from flagtree import _flagprism
 from triton._C.libtriton import ir, passes, ascend
 from triton.backends.ascend.utils import (
     _check_bishengir_api_change,

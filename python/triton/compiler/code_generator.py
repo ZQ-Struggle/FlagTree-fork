@@ -14,7 +14,7 @@ import importlib
 
 from .. import knobs, language
 # FlagPrism: use the core no-op gateway; optional tools remain lazily loaded.
-from .. import _flagprism
+from flagtree import _flagprism
 from .._C.libtriton import ir, gluon_ir
 from ..language import constexpr, str_to_ty, tensor, tuple as tl_tuple
 from ..language.core import _unwrap_if_constexpr, base_value, base_type

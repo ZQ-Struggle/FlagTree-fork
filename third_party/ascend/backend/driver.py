@@ -30,7 +30,7 @@ from typing import Optional
 import functools
 import hashlib
 
-from triton import _flagprism
+from flagtree import _flagprism
 from triton.runtime.cache import get_cache_manager, get_dump_manager
 from triton.backends.driver import DriverBase
 from triton.backends.compiler import GPUTarget

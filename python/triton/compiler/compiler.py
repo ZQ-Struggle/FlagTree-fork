@@ -7,7 +7,7 @@ from ..backends.compiler import Language
 from ..backends.compiler import BaseBackend, GPUTarget
 from .. import __version__, knobs
 # FlagPrism: use the core no-op gateway; optional tools remain lazily loaded.
-from .. import _flagprism
+from flagtree import _flagprism
 from ..runtime.autotuner import OutOfResources
 from ..runtime.cache import get_cache_manager, get_dump_manager, get_override_manager, get_cache_key
 from ..runtime.driver import driver

@@ -147,6 +147,12 @@ class FlagPrismSetup:
         elif path.is_dir():
             shutil.rmtree(path)
 
+    def _remove_legacy_gateway(self, build_lib: str) -> None:
+        triton_root = Path(build_lib) / "triton"
+        self._remove_path(triton_root / "_flagprism.py")
+        for artifact in (triton_root / "__pycache__").glob("_flagprism.*.pyc"):
+            self._remove_path(artifact)
+
     def cmake_args(self, build_lib: str) -> list[str]:
         if self.build_config is None:
             return ["-DTRITON_BUILD_FLAGPRISM=OFF"]
@@ -158,6 +164,9 @@ class FlagPrismSetup:
         return self._dependency_cmake_args(build_ext)
 
     def prepare_build_tree(self, build_lib: str) -> None:
+        # The gateway now belongs to flagtree; reused build trees must not
+        # repackage the former triton._flagprism module.
+        self._remove_legacy_gateway(build_lib)
         if self.build_config is not None:
             self.build_config.prepare_build_tree(build_lib)
             return
@@ -170,11 +179,12 @@ class FlagPrismSetup:
             self.build_config.finalize_build_tree(build_lib)
         else:
             self.prepare_build_tree(build_lib)
+        self._remove_legacy_gateway(build_lib)
 
     def packages(self) -> tuple[str, ...]:
         if self.build_config is None:
             return ()
-        return ("flagtree", *self.build_config.packages())
+        return self.build_config.packages()
 
     def package_dirs(self) -> tuple[tuple[str, str], ...]:
         if self.build_config is None:

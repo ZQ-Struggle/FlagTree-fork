@@ -12,7 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from python.setup_tools import setup_helper  # noqa: E402
-from triton import _flagprism
+from flagtree import _flagprism
 
 
 def _load_build_helper():
@@ -95,6 +95,41 @@ def test_public_component_modules_use_flagtree_namespace():
         "debugger": "flagtree.debugger",
         "profiler": "flagtree.profiler",
     }
+
+
+def test_language_extensions_are_owned_only_by_flagtree():
+    import flagtree.language as ftl
+    import triton.language as tl
+
+    assert ftl.debug_collect_start.__triton_builtin__ is True
+    assert ftl.debug_collect_end.__triton_builtin__ is True
+    assert not hasattr(tl, "debug_collect_start")
+    assert not hasattr(tl, "debug_collect_end")
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("triton._flagprism")
+
+
+def test_language_extensions_forward_to_registered_component():
+    import flagtree.language as ftl
+
+    calls = []
+    component = _component(
+        "debugger",
+        debug_collect_start=lambda semantic, level, addr_level: calls.append(
+            ("start", semantic, level, addr_level)
+        ),
+        debug_collect_end=lambda semantic: calls.append(("end", semantic)),
+    )
+    _flagprism.register_component("debugger", component)
+
+    semantic = object()
+    ftl.debug_collect_start(level=2, addr_level=1, _semantic=semantic)
+    ftl.debug_collect_end(_semantic=semantic)
+
+    assert calls == [
+        ("start", semantic, 2, 1),
+        ("end", semantic),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -204,6 +239,26 @@ def test_ascend_rejects_flagprism_and_proton_together(
 
     assert not downloads
     assert setup_helper.os.environ["TRITON_BUILD_PROTON"] == "ON"
+
+
+def test_reused_build_tree_drops_legacy_triton_gateway(
+    flagprism_setup_factory, tmp_path
+):
+    create, _ = flagprism_setup_factory
+    policy = create(None)
+    build_lib = tmp_path / "build-lib"
+    legacy_module = build_lib / "triton" / "_flagprism.py"
+    legacy_cache = (
+        build_lib / "triton" / "__pycache__" / "_flagprism.cpython-311.pyc"
+    )
+    for path in (legacy_module, legacy_cache):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"stale")
+
+    policy.prepare_build_tree(str(build_lib))
+
+    assert not legacy_module.exists()
+    assert not legacy_cache.exists()
 
 
 def test_known_component_is_loaded_once(monkeypatch):
