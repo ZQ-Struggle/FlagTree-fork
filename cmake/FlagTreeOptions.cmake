@@ -249,7 +249,9 @@ macro(flagtree_configure_python_plugins)
   # We always build proton dialect because core Triton conversion libraries link
   # ProtonIR. XPU-specific Proton GPU lowering wrappers are disabled inside the
   # Proton plugin instead of skipping the whole dialect.
-  if(FLAGTREE_BACKEND STREQUAL "hcu")
+  if(TRITON_BUILD_FLAGPRISM)
+    # FlagPrism supplies the ProtonIR target and dialect registration.
+  elseif(FLAGTREE_BACKEND STREQUAL "hcu")
     list(APPEND TRITON_PLUGIN_DIRS
       "${CMAKE_CURRENT_SOURCE_DIR}/third_party/hcu/proton")
     include_directories(
