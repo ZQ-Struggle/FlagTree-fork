@@ -371,6 +371,13 @@ def get_thirdparty_packages(packages: list):
     return thirdparty_cmake_args
 
 
+def get_flagprism_dependency_cmake_args(_build_ext):  # FlagPrism
+    return get_thirdparty_packages([get_json_package_info()])
+
+
+FLAGPRISM_SETUP = helper.FlagPrismSetup(get_base_dir(), get_flagprism_dependency_cmake_args)  # FlagPrism
+
+
 def download_and_copy(name, src_func, dst_path, variable, version, url_func):
     if is_offline_build():
         return
@@ -426,6 +433,7 @@ class CMakeClean(clean):
 class CMakeBuildPy(build_py):
 
     def run(self) -> None:
+        FLAGPRISM_SETUP.prepare_build_tree(self.build_lib)  # FlagPrism
         self.run_command('build_ext')
         helper.write_flagtree_backend_file()
         # Re-apply the fixed xpu runtime .so overlay after cmake: device/CMakeLists.txt
@@ -447,6 +455,7 @@ class CMakeBuildPy(build_py):
         # before torch, so kernel launch needs no manual LD_LIBRARY_PATH/LD_PRELOAD.
         # Written into build_lib root so it lands at the site-packages root of the wheel.
         helper.write_backend_site_pth(self.build_lib)
+        FLAGPRISM_SETUP.finalize_build_tree(self.build_lib)  # FlagPrism
         return ret
 
 
@@ -590,6 +599,8 @@ class CMakeBuild(build_ext):
 
         if check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
             cmake_args += self.get_proton_cmake_args()
+        cmake_args += FLAGPRISM_SETUP.cmake_args(self.build_lib)  # FlagPrism
+        cmake_args += FLAGPRISM_SETUP.dependency_cmake_args(self)  # FlagPrism
 
         if helper.flagtree_backend == "iluvatar":
             gluon_flag = "ON" if check_env_flag("TRITON_ILU_BUILD_GLUON") else "OFF"
@@ -726,6 +737,7 @@ def get_backend_packages(backend):
 
 def get_package_dirs():
     yield ("", "python")
+    yield from FLAGPRISM_SETUP.package_dirs()  # FlagPrism
 
     # flagtree backend specialization
     yield from helper.SpecPackageHelper.get_spec_packages()
@@ -758,8 +770,9 @@ def get_package_dirs():
 
 def get_packages():
     # flagtree backend specialization: add excluded packages
-    yield from find_packages(where="python", include=["triton", "triton.*"],
+    yield from find_packages(where="python", include=["triton", "triton.*", "flagtree", "flagtree.*"],
                              exclude=helper.SpecPackageHelper.get_excluded_packages())
+    yield from FLAGPRISM_SETUP.packages()  # FlagPrism
 
     # flagtree backend specialization
     for package, _source_dir in helper.SpecPackageHelper.get_spec_packages():
@@ -902,6 +915,8 @@ class plugin_sdist(sdist):
 
 def get_entry_points():
     entry_points = {}
+    if console_scripts := FLAGPRISM_SETUP.console_scripts():  # FlagPrism
+        entry_points["console_scripts"] = console_scripts
     if check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
         entry_points["console_scripts"] = [
             "proton-viewer = triton.profiler.viewer:main",
