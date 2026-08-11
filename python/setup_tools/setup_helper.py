@@ -219,7 +219,6 @@ class FlagPrismSetup:
         return self.build_config.console_scripts()
 
 
-
 def post_install():
     backend_spec_post_install_fn = get_hook_instance("post_install")
     if backend_spec_post_install_fn:
