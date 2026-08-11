@@ -23,9 +23,10 @@ option(TRITON_BUILD_PYTHON_MODULE "Build Python Triton bindings" OFF)
 option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" ${FLAGTREE_DEFAULT_OPTION})
 option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" ${FLAGTREE_DEFAULT_OPTION})
 
-# Keep FlagPrism configuration isolated from non-Ascend backends.
+# Keep FlagPrism configuration isolated from supported backends.
+set(_flagprism_supported_backends ascend iluvatar)
 set(_flagprism_default OFF)
-if(FLAGTREE_BACKEND STREQUAL "ascend")
+if(FLAGTREE_BACKEND IN_LIST _flagprism_supported_backends)
   set(_flagprism_default ON)
 endif()
 option(TRITON_BUILD_FLAGPRISM
@@ -33,10 +34,10 @@ option(TRITON_BUILD_FLAGPRISM
        ${_flagprism_default})
 
 if(TRITON_BUILD_FLAGPRISM)
-  if(NOT FLAGTREE_BACKEND STREQUAL "ascend")
+  if(NOT FLAGTREE_BACKEND IN_LIST _flagprism_supported_backends)
     message(FATAL_ERROR
       "TRITON_BUILD_FLAGPRISM is only supported when "
-      "FLAGTREE_BACKEND=ascend.")
+      "FLAGTREE_BACKEND=ascend or iluvatar.")
   endif()
   if(TRITON_BUILD_PROTON)
     message(FATAL_ERROR

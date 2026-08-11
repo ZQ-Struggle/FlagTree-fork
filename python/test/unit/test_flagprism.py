@@ -158,6 +158,7 @@ def test_build_helper_uses_unified_switch(build_helper, monkeypatch, tmp_path, v
     (
         (None, False),
         ("ascend", True),
+        ("iluvatar", True),
         ("enflame", False),
         ("tsingmicro", False),
         ("cambricon", False),
@@ -166,7 +167,7 @@ def test_build_helper_uses_unified_switch(build_helper, monkeypatch, tmp_path, v
         ("mthreads", False),
     ),
 )
-def test_flagprism_is_enabled_by_default_only_for_ascend(flagprism_setup_factory, monkeypatch, backend, enabled):
+def test_flagprism_is_enabled_by_default_for_supported_backends(flagprism_setup_factory, monkeypatch, backend, enabled):
     create, downloads = flagprism_setup_factory
     monkeypatch.delenv("TRITON_BUILD_FLAGPRISM", raising=False)
     monkeypatch.delenv("TRITON_BUILD_PROTON", raising=False)
@@ -198,12 +199,12 @@ def test_ascend_can_explicitly_disable_flagprism_without_changing_proton(flagpri
     assert setup_helper.os.environ["TRITON_BUILD_PROTON"] == "ON"
 
 
-def test_non_ascend_explicit_flagprism_is_rejected_before_side_effects(flagprism_setup_factory, monkeypatch):
+def test_unsupported_backend_explicit_flagprism_is_rejected_before_side_effects(flagprism_setup_factory, monkeypatch):
     create, downloads = flagprism_setup_factory
     monkeypatch.setenv("TRITON_BUILD_FLAGPRISM", "ON")
     monkeypatch.setenv("TRITON_BUILD_PROTON", "ON")
 
-    with pytest.raises(RuntimeError, match="FLAGTREE_BACKEND=ascend"):
+    with pytest.raises(RuntimeError, match="FLAGTREE_BACKEND=ascend or iluvatar"):
         create("enflame")
 
     assert not downloads
