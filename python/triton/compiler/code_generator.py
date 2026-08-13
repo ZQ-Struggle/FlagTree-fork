@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from types import ModuleType
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, Iterable, List
 
-from .. import knobs, language
+from .. import _flagprism, knobs, language
 from .._C.libtriton import ir, gluon_ir
 from ..language import constexpr, str_to_ty, tensor, tuple as tl_tuple
 from ..language.core import _unwrap_if_constexpr, base_value, base_type
@@ -767,6 +767,9 @@ class CodeGenerator(ast.NodeVisitor):
                 values = _sanitize_value(self.visit(node.value))
         else:
             values = _sanitize_value(self.visit(node.value))
+        _flagprism.emit_statement_event(
+            "assignment", self, node, target, values
+        )
         self.assignTarget(target, values)
 
     def visit_AugAssign(self, node):
@@ -1703,7 +1706,8 @@ class CodeGenerator(ast.NodeVisitor):
 
     def visit_Expr(self, node):
         node.value._is_unused = True
-        ast.NodeVisitor.generic_visit(self, node)
+        value = self.visit(node.value)
+        _flagprism.emit_statement_event("expression", self, node, None, value)
 
     def visit_NoneType(self, node):
         return None

@@ -2921,6 +2921,22 @@ def debug_barrier(_semantic=None):
 
 
 @builtin
+def debug_collect_start(level=1, addr_level=None, _semantic=None):
+    """Begin an optional FlagPrism debugger collection region."""
+    from triton import _flagprism
+
+    return _flagprism.debug_collect_start(_semantic, level, addr_level)
+
+
+@builtin
+def debug_collect_end(_semantic=None):
+    """End an optional FlagPrism debugger collection region."""
+    from triton import _flagprism
+
+    return _flagprism.debug_collect_end(_semantic)
+
+
+@builtin
 def multiple_of(input, values, _semantic=None):
     """
     Let the compiler know that the values in :code:`input` are all multiples of :code:`value`.
