@@ -6,6 +6,7 @@ from ..backends import backends
 from ..backends.compiler import Language
 from ..backends.compiler import BaseBackend, GPUTarget
 from .. import __version__, knobs
+from flagtree import _flagprism  # FlagPrism
 from ..runtime.autotuner import OutOfResources
 from ..runtime.cache import get_cache_manager, get_dump_manager, get_override_manager, get_cache_key, triton_key  # flagtree mthreads3.2: Add triton_key
 from ..runtime.driver import driver
@@ -94,6 +95,7 @@ class IRSource:
         self.src = path.read_text()
         ir.load_dialects(context)
         backend.load_dialects(context)
+        _flagprism.load_dialects(context)
 
         # We don't have a easy-to-use PTX parser that we can use, so keep that regex for now.
         # TODO - replace with a proper parser
@@ -309,6 +311,7 @@ def compile(src, target=None, options=None, _env_vars=None):
         context = ir.context()
         ir.load_dialects(context)
         backend.load_dialects(context)
+        _flagprism.load_dialects(context)
 
     codegen_fns = backend.get_codegen_implementation(options)
     module_map = backend.get_module_map()
@@ -334,6 +337,12 @@ def compile(src, target=None, options=None, _env_vars=None):
         timer.finished_ir_initialization()
     for ext, compile_ir in list(stages.items())[first_stage:]:
         next_module = compile_ir(module, metadata)
+        _flagprism.emit_compiler_event(
+            phase="post_override",
+            ir_kind=ext,
+            module=next_module,
+            metadata=metadata,
+        )
         ir_filename = f"{file_name}.{ext}"
         if fn_override_manager is None:
             # Users can override kernels at scale by setting `ir_override` in autotune config

@@ -129,30 +129,36 @@ class FlagPrismSetup:
     def __init__(self, project_root, dependency_cmake_args):
         self.project_root = Path(project_root)
         backend = configs.flagtree_backend or ""
-        default = "ON" if backend == "ascend" else "OFF"
+        default = "ON" if backend in {"ascend", "mthreads"} else "OFF"
         self.enabled = self._check_env_flag("TRITON_BUILD_FLAGPRISM", default)
         self.build_config = None
         self._dependency_cmake_args = dependency_cmake_args
+        source_override = os.environ.get("FLAGPRISM_SOURCE_DIR", "").strip()
+        self.source_root = Path(source_override).resolve() if source_override else None
 
-        if self.enabled and backend != "ascend":
+        if self.enabled and backend not in {"ascend", "mthreads"}:
             raise RuntimeError("TRITON_BUILD_FLAGPRISM is only supported when "
-                               "FLAGTREE_BACKEND=ascend on triton_v3.5.x.")
+                               "FLAGTREE_BACKEND=ascend or mthreads.")
         if not self.enabled:
             return
         if self._check_env_flag("TRITON_BUILD_PROTON"):
             raise RuntimeError("TRITON_BUILD_FLAGPRISM and TRITON_BUILD_PROTON cannot both be enabled. "
                                "Set one of them to OFF.")
 
-        # FlagPrism replaces Proton only for the supported Ascend build.
+        # FlagPrism replaces Proton for the supported vendor builds.
         os.environ["TRITON_BUILD_PROTON"] = "OFF"
-        download_flagtree_third_party("FlagPrism", condition=True, required=True)
+        if self.source_root is None:
+            download_flagtree_third_party("FlagPrism", condition=True, required=True)
+            self.source_root = self.project_root / "third_party" / "FlagPrism"
 
-        helper_path = self.project_root / "third_party" / "FlagPrism" / "python" / "flagprism_build.py"
+        helper_path = self.source_root / "python" / "flagprism_build.py"
         if not helper_path.is_file():
             raise RuntimeError("FlagPrism sources are missing. Run the Python package build "
                                "to download third-party dependencies.")
         policy = runpy.run_path(str(helper_path), run_name="_flagprism_build")
-        self.build_config = policy["create_build_config"](self.project_root)
+        self.build_config = policy["create_build_config"](
+            self.project_root, self.source_root
+        )
 
         legacy_link = self.project_root / "python" / "triton" / "profiler"
         if legacy_link.is_symlink():

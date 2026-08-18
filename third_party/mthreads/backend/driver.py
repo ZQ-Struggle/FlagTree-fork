@@ -9,6 +9,7 @@ from triton import knobs
 from triton.backends.compiler import GPUTarget
 from triton.backends.driver import DriverBase
 from triton.runtime.build import compile_module_from_src
+from flagtree import _flagprism  # FlagPrism
 
 dirname = os.path.dirname(os.path.realpath(__file__))
 _TENSORDESC_CACHE_LIMIT = 1024
@@ -755,6 +756,9 @@ class MusaLauncher(object):
 
         constants = {cst_key(key): value for key, value in constants.items()}
         signature = {cst_key(key): value for key, value in src.signature.items()}
+        self.user_arg_count = len(signature)
+        self.metadata = metadata
+        self._debug_enabled = bool(getattr(metadata, "debug_launch_hidden_arg", False))
 
         ordered_sig_keys = sorted(signature.keys())
         self._signature_types = [signature[key] for key in ordered_sig_keys]
@@ -769,6 +773,8 @@ class MusaLauncher(object):
 
         expanded_signature_types, expanded_index = _expand_signature_tree(self._signature_types, self._tensordesc_meta)
         expanded_signature = {idx: ty for idx, ty in enumerate(expanded_signature_types)}
+        if self._debug_enabled:
+            expanded_signature[len(expanded_signature)] = "*i8"
         expanded_constants = {}
         for key, value in constants.items():
             path = _normalize_arg_path(key)
@@ -886,27 +892,48 @@ class MusaLauncher(object):
         launch_keepalive.append(keepalive)
 
     def __call__(self, *args, **kwargs):
-        if not self._needs_runtime_expansion:
-            self.launch(*args, **kwargs)
-            return
+        def launch(hidden_args=()):
+            if not self._needs_runtime_expansion:
+                return self.launch(*args, *hidden_args, **kwargs)
 
-        # launch(gridX, gridY, gridZ, stream, function, kernel_metadata,
-        # launch_metadata, launch_enter_hook, launch_exit_hook, *kernel_args)
-        launch_prefix = args[:9]
-        kernel_args = args[9:]
-        if len(kernel_args) != len(self._signature_types):
-            raise RuntimeError("launcher argument count mismatch while expanding tensor descriptors")
+            # launch(gridX, gridY, gridZ, stream, function, kernel_metadata,
+            # launch_metadata, launch_enter_hook, launch_exit_hook, *kernel_args)
+            launch_prefix = args[:9]
+            kernel_args = args[9:]
+            if len(kernel_args) != len(self._signature_types):
+                raise RuntimeError(
+                    "launcher argument count mismatch while expanding tensor descriptors"
+                )
 
-        expanded_kernel_args = []
-        launch_keepalive = []
-        tensordesc_state = [0]
-        for arg, ty in zip(kernel_args, self._signature_types):
-            self._expand_runtime_arg(arg, ty, expanded_kernel_args, launch_keepalive, tensordesc_state)
+            expanded_kernel_args = []
+            launch_keepalive = []
+            tensordesc_state = [0]
+            for arg, ty in zip(kernel_args, self._signature_types):
+                self._expand_runtime_arg(
+                    arg, ty, expanded_kernel_args, launch_keepalive, tensordesc_state
+                )
 
-        self._tensordesc_keepalive.extend(launch_keepalive)
-        if len(self._tensordesc_keepalive) > 4096:
-            self._tensordesc_keepalive = self._tensordesc_keepalive[-4096:]
-        self.launch(*launch_prefix, *expanded_kernel_args, **kwargs)
+            self._tensordesc_keepalive.extend(launch_keepalive)
+            if len(self._tensordesc_keepalive) > 4096:
+                self._tensordesc_keepalive = self._tensordesc_keepalive[-4096:]
+            return self.launch(
+                *launch_prefix, *expanded_kernel_args, *hidden_args, **kwargs
+            )
+
+        if not self._debug_enabled:
+            return launch()
+
+        user_args = args[-self.user_arg_count:] if self.user_arg_count else ()
+        launch_metadata = args[6] if len(args) > 6 else None
+        with _flagprism.debugger_launch_context(
+            "musa",
+            self.metadata,
+            (args[0], args[1], args[2]),
+            args[3],
+            launch_metadata,
+            user_args,
+        ) as hidden_args:
+            return launch(hidden_args)
 
 
 class MusaDriver(DriverBase):
