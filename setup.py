@@ -433,7 +433,7 @@ class CMakeClean(clean):
 class CMakeBuildPy(build_py):
 
     def run(self) -> None:
-        FLAGPRISM_SETUP.prepare_build_tree(self.build_lib)  # FlagPrism
+        FLAGPRISM_SETUP.prepare_build_tree(self.build_lib)
         self.run_command('build_ext')
         helper.write_flagtree_backend_file()
         # Re-apply the fixed xpu runtime .so overlay after cmake: device/CMakeLists.txt
@@ -455,7 +455,7 @@ class CMakeBuildPy(build_py):
         # before torch, so kernel launch needs no manual LD_LIBRARY_PATH/LD_PRELOAD.
         # Written into build_lib root so it lands at the site-packages root of the wheel.
         helper.write_backend_site_pth(self.build_lib)
-        FLAGPRISM_SETUP.finalize_build_tree(self.build_lib)  # FlagPrism
+        FLAGPRISM_SETUP.finalize_build_tree(self.build_lib)
         return ret
 
 

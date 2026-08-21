@@ -265,7 +265,9 @@ def compile(src, target=None, options=None, _env_vars=None):
         src = IRSource(src, context, backend)
 
     extra_options = src.parse_options()
-    options = backend.parse_options(dict(options or dict(), **extra_options))
+    raw_options = dict(options or dict(), **extra_options)
+    _flagprism.apply_compile_options(raw_options)
+    options = backend.parse_options(raw_options)
     # create cache manager
     env_vars = get_cache_invalidating_env_vars() if _env_vars is None else _env_vars
     key = get_cache_key(src, backend, options, env_vars=env_vars)

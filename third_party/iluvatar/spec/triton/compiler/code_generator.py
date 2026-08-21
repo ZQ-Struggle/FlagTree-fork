@@ -11,6 +11,7 @@ from types import ModuleType
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, Iterable, List
 
 from .. import knobs, language
+from flagtree import _flagprism
 from .._C.libtriton import ir
 try:
     from .._C.libtriton import gluon_ir
@@ -703,6 +704,7 @@ class CodeGenerator(ast.NodeVisitor):
                 values = _sanitize_value(self.visit(node.value))
         else:
             values = _sanitize_value(self.visit(node.value))
+        _flagprism.emit_statement_event("assignment", self, node, target, values)
         self.assignTarget(target, values)
 
     def visit_AugAssign(self, node):
@@ -1506,7 +1508,8 @@ class CodeGenerator(ast.NodeVisitor):
 
     def visit_Expr(self, node):
         node.value._is_unused = True
-        ast.NodeVisitor.generic_visit(self, node)
+        value = self.visit(node.value)
+        _flagprism.emit_statement_event("expression", self, node, None, value)
 
     def visit_NoneType(self, node):
         return None
