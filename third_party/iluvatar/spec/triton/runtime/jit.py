@@ -14,7 +14,8 @@ from typing import Callable, Generic, Iterable, Optional, TypeVar, overload, Dic
 
 from triton.backends import BaseBackend
 from types import ModuleType
-from .. import _flagprism, knobs
+from .. import knobs
+from flagtree import _flagprism
 from .driver import driver
 from . import _async_compile
 from .._utils import find_paths_if, get_iterable_path, type_canonicalisation_dict, is_namedtuple

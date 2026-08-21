@@ -5,7 +5,7 @@ import triton
 import re
 from pathlib import Path
 from triton import knobs
-from triton import _flagprism
+from flagtree import _flagprism
 from triton.runtime.build import compile_module_from_src
 from triton.runtime import _allocation
 from triton.backends.compiler import GPUTarget

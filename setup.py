@@ -24,7 +24,6 @@ import os
 import platform
 import re
 import contextlib
-import runpy
 import shlex
 import shutil
 import subprocess
@@ -372,84 +371,11 @@ def get_thirdparty_packages(packages: list):
     return thirdparty_cmake_args
 
 
-class FlagPrismSetup:
-
-    def __init__(self):
-        self.project_root = Path(__file__).resolve().parent
-        self.enabled = check_env_flag("TRITON_BUILD_FLAGPRISM", "OFF")
-        self.build_config = None
-
-        if not self.enabled:
-            return
-        if check_env_flag("TRITON_BUILD_PROTON"):
-            raise RuntimeError(
-                "TRITON_BUILD_FLAGPRISM and TRITON_BUILD_PROTON cannot both be enabled. "
-                "Set one of them to OFF."
-            )
-
-        os.environ["TRITON_BUILD_PROTON"] = "OFF"
-        source_root = Path(
-            os.getenv(
-                "FLAGPRISM_SOURCE_DIR",
-                self.project_root / "third_party" / "FlagPrism",
-            )
-        ).resolve()
-        helper_path = source_root / "python" / "flagprism_build.py"
-        if not helper_path.is_file():
-            raise RuntimeError(
-                f"FlagPrism build policy is missing: {helper_path}. "
-                "Set FLAGPRISM_SOURCE_DIR to the FlagPrism checkout."
-            )
-        policy = runpy.run_path(str(helper_path), run_name="_flagprism_build")
-        self.build_config = policy["create_build_config"](
-            self.project_root, source_root
-        )
-
-        legacy_link = self.project_root / "python" / "triton" / "profiler"
-        if legacy_link.is_symlink():
-            legacy_link.unlink()
-
-    @staticmethod
-    def _remove_path(path: Path) -> None:
-        if path.is_symlink() or path.is_file():
-            path.unlink(missing_ok=True)
-        elif path.is_dir():
-            shutil.rmtree(path)
-
-    def cmake_args(self, build_lib: str) -> list[str]:
-        if self.build_config is None:
-            return ["-DTRITON_BUILD_FLAGPRISM=OFF"]
-        return self.build_config.cmake_args(build_lib)
-
-    def dependency_cmake_args(self, build_ext) -> list[str]:
-        if not self.enabled:
-            return []
-        return get_thirdparty_packages([get_json_package_info()]) + build_ext.get_pybind11_cmake_args()
-
-    def prepare_build_tree(self, build_lib: str) -> None:
-        if self.build_config is not None:
-            self.build_config.prepare_build_tree(build_lib)
-            return
-        build_root = Path(build_lib) / "flagtree"
-        self._remove_path(build_root / "debugger")
-        self._remove_path(build_root / "profiler")
-
-    def finalize_build_tree(self, build_lib: str) -> None:
-        if self.build_config is not None:
-            self.build_config.finalize_build_tree(build_lib)
-        else:
-            self.prepare_build_tree(build_lib)
-
-    def extend_distribution(self, packages: list, package_dirs: dict, entry_points: dict) -> None:
-        if self.build_config is None:
-            return
-        packages.extend(self.build_config.packages())
-        package_dirs.update(self.build_config.package_dirs())
-        if console_scripts := self.build_config.console_scripts():
-            entry_points.setdefault("console_scripts", []).extend(console_scripts)
+def get_flagprism_dependency_cmake_args(_build_ext):  # FlagPrism
+    return get_thirdparty_packages([get_json_package_info()])
 
 
-FLAGPRISM_SETUP = FlagPrismSetup()
+FLAGPRISM_SETUP = helper.FlagPrismSetup(get_base_dir(), get_flagprism_dependency_cmake_args)  # FlagPrism
 
 
 def download_and_copy(name, src_func, dst_path, variable, version, url_func):
@@ -604,7 +530,6 @@ class CMakeBuild(build_ext):
         # lit is used by the test suite
         thirdparty_cmake_args = get_thirdparty_packages([get_llvm_package_info()])
         thirdparty_cmake_args += self.get_pybind11_cmake_args()
-        thirdparty_cmake_args += FLAGPRISM_SETUP.dependency_cmake_args(self)
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.path)))
         wheeldir = os.path.dirname(extdir)
 
@@ -624,7 +549,6 @@ class CMakeBuild(build_ext):
             "-DTRITON_PLUGIN_DIRS=" + ';'.join([b.src_dir for b in backends if b.is_external]),
             "-DTRITON_WHEEL_DIR=" + wheeldir
         ]
-        cmake_args += FLAGPRISM_SETUP.cmake_args(self.build_lib)
         cmake_args += helper.get_backend_cmake_args(build_ext=self)
         if lit_dir is not None:
             cmake_args.append("-DLLVM_EXTERNAL_LIT=" + lit_dir)
@@ -675,6 +599,8 @@ class CMakeBuild(build_ext):
 
         if check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
             cmake_args += self.get_proton_cmake_args()
+        cmake_args += FLAGPRISM_SETUP.cmake_args(self.build_lib)  # FlagPrism
+        cmake_args += FLAGPRISM_SETUP.dependency_cmake_args(self)  # FlagPrism
 
         if helper.flagtree_backend == "iluvatar":
             gluon_flag = "ON" if check_env_flag("TRITON_ILU_BUILD_GLUON") else "OFF"
@@ -811,6 +737,7 @@ def get_backend_packages(backend):
 
 def get_package_dirs():
     yield ("", "python")
+    yield from FLAGPRISM_SETUP.package_dirs()  # FlagPrism
 
     # flagtree backend specialization
     yield from helper.SpecPackageHelper.get_spec_packages()
@@ -843,8 +770,9 @@ def get_package_dirs():
 
 def get_packages():
     # flagtree backend specialization: add excluded packages
-    yield from find_packages(where="python", include=["triton", "triton.*"],
+    yield from find_packages(where="python", include=["triton", "triton.*", "flagtree", "flagtree.*"],
                              exclude=helper.SpecPackageHelper.get_excluded_packages())
+    yield from FLAGPRISM_SETUP.packages()  # FlagPrism
 
     # flagtree backend specialization
     for package, _source_dir in helper.SpecPackageHelper.get_spec_packages():
@@ -987,6 +915,8 @@ class plugin_sdist(sdist):
 
 def get_entry_points():
     entry_points = {}
+    if console_scripts := FLAGPRISM_SETUP.console_scripts():  # FlagPrism
+        entry_points["console_scripts"] = console_scripts
     if check_env_flag("TRITON_BUILD_PROTON", "ON"):  # Default ON
         entry_points["console_scripts"] = [
             "proton-viewer = triton.profiler.viewer:main",
@@ -1058,11 +988,6 @@ readme_path = os.path.join(get_base_dir(), "README.md")
 with open(readme_path, "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-packages = list(get_packages())
-package_dirs = dict(get_package_dirs())
-entry_points = get_entry_points()
-FLAGPRISM_SETUP.extend_distribution(packages, package_dirs, entry_points)
-
 setup(
     name=os.environ.get("FLAGTREE_WHEEL_NAME", "flagtree"),
     version=get_flagtree_version(),
@@ -1076,11 +1001,11 @@ setup(
         "importlib-metadata; python_version < '3.10'",
         *(["PyYAML>=6.0"] if helper.flagtree_backend != "thrive" else []),
     ],
-    packages=packages,
-    package_dir=package_dirs,
+    packages=list(get_packages()),
+    package_dir=dict(get_package_dirs()),
     package_data=get_package_data(),
     exclude_package_data=helper.get_excluded_package_data(),
-    entry_points=entry_points,
+    entry_points=get_entry_points(),
     include_package_data=True,
     ext_modules=[CMakeExtension("triton", "triton/_C/")],
     cmdclass={

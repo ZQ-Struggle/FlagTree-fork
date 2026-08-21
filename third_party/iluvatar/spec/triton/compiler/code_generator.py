@@ -10,7 +10,8 @@ from dataclasses import dataclass
 from types import ModuleType
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, Iterable, List
 
-from .. import _flagprism, knobs, language
+from .. import knobs, language
+from flagtree import _flagprism
 from .._C.libtriton import ir
 try:
     from .._C.libtriton import gluon_ir

@@ -21,27 +21,49 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 # Options
 option(TRITON_BUILD_PYTHON_MODULE "Build Python Triton bindings" OFF)
 option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" ${FLAGTREE_DEFAULT_OPTION})
-option(TRITON_BUILD_FLAGPRISM "Build the FlagPrism debugger and profiler" OFF)
 option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" ${FLAGTREE_DEFAULT_OPTION})
+
+# Keep FlagPrism configuration isolated from unsupported backends.
+set(_flagprism_default OFF)
+if(FLAGTREE_BACKEND STREQUAL "ascend" OR FLAGTREE_BACKEND STREQUAL "iluvatar")
+  set(_flagprism_default ON)
+endif()
+option(TRITON_BUILD_FLAGPRISM
+       "Build the FlagPrism debugger and profiler"
+       ${_flagprism_default})
+
+if(TRITON_BUILD_FLAGPRISM)
+  if(NOT (FLAGTREE_BACKEND STREQUAL "ascend" OR FLAGTREE_BACKEND STREQUAL "iluvatar"))
+    message(FATAL_ERROR
+      "TRITON_BUILD_FLAGPRISM is only supported when "
+      "FLAGTREE_BACKEND is ascend or iluvatar.")
+  endif()
+  if(TRITON_BUILD_PROTON)
+    message(FATAL_ERROR
+      "TRITON_BUILD_FLAGPRISM and TRITON_BUILD_PROTON cannot both be enabled. "
+      "Select exactly one profiler implementation.")
+  endif()
+
+  set(FLAGPRISM_CMAKE_FILE
+      "${CMAKE_CURRENT_SOURCE_DIR}/third_party/FlagPrism/cmake/FlagPrism.cmake")
+  if(EXISTS "${FLAGPRISM_CMAKE_FILE}")
+    include("${FLAGPRISM_CMAKE_FILE}")
+    add_compile_definitions(__FLAGPRISM__=1)
+  else()
+    message(FATAL_ERROR
+      "FlagPrism source is missing. Run the Python package build to download "
+      "third-party dependencies.")
+  endif()
+endif()
+
+macro(flagtree_add_flagprism_components)
+  if(TRITON_BUILD_FLAGPRISM)
+    flagprism_add_components()
+  endif()
+endmacro()
+
 option(TRITON_BUILD_WITH_CCACHE "Build with ccache (if available)" ON)
 set(TRITON_CODEGEN_BACKENDS "" CACHE STRING "Enable different codegen backends")
-
-if(TRITON_BUILD_FLAGPRISM AND TRITON_BUILD_PROTON)
-  message(FATAL_ERROR
-    "TRITON_BUILD_FLAGPRISM and TRITON_BUILD_PROTON cannot both be enabled")
-endif()
-if(TRITON_BUILD_FLAGPRISM)
-  if(NOT FLAGPRISM_SOURCE_DIR)
-    set(FLAGPRISM_SOURCE_DIR
-        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/FlagPrism")
-  endif()
-  set(FLAGPRISM_CMAKE_FILE "${FLAGPRISM_SOURCE_DIR}/cmake/FlagPrism.cmake")
-  if(NOT EXISTS "${FLAGPRISM_CMAKE_FILE}")
-    message(FATAL_ERROR "FlagPrism source is missing: ${FLAGPRISM_CMAKE_FILE}")
-  endif()
-  include("${FLAGPRISM_CMAKE_FILE}")
-  add_compile_definitions(__FLAGPRISM__=1)
-endif()
 
 flagtree_configure_codegen_backends()
 
@@ -222,9 +244,8 @@ if(TRITON_BUILD_PYTHON_MODULE)
   find_package(pybind11 CONFIG REQUIRED HINTS "${Python3_SITELIB}")
   flagtree_python_link_libraries()
 
-  if(TRITON_BUILD_FLAGPRISM)
-    flagprism_add_components()
-  endif()
+  # Backend codegen targets capture TRITON_LIBS at configuration time.
+  flagtree_add_flagprism_components()
 
   foreach(CODEGEN_BACKEND ${TRITON_CODEGEN_BACKENDS})
     add_subdirectory(third_party/${CODEGEN_BACKEND})
@@ -388,9 +409,7 @@ if(TRITON_BUILD_PYTHON_MODULE AND NOT WIN32)
 endif()
 
 if(NOT TRITON_BUILD_PYTHON_MODULE)
-  if(TRITON_BUILD_FLAGPRISM)
-    flagprism_add_components()
-  endif()
+  flagtree_add_flagprism_components()
   foreach(CODEGEN_BACKEND ${TRITON_CODEGEN_BACKENDS})
     add_subdirectory(third_party/${CODEGEN_BACKEND})
   endforeach()

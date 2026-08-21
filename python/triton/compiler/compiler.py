@@ -27,7 +27,8 @@ from .._C.libtriton import get_cache_invalidating_env_vars, ir
 from ..backends import get_backend, get_driver
 from ..backends.compiler import Language
 from ..backends.compiler import BaseBackend, GPUTarget
-from .. import _flagprism, __version__, knobs
+from .. import __version__, knobs
+from flagtree import _flagprism  # FlagPrism
 from ..runtime.autotuner import OutOfResources
 from ..runtime.cache import get_cache_manager, get_dump_manager, get_override_manager, get_cache_key
 from ..runtime.driver import driver
@@ -116,6 +117,7 @@ class IRSource:
         self.src = path.read_text()
         ir.load_dialects(context)
         backend.load_dialects(context)
+        # FlagPrism: register optional dialects in every fresh context.
         _flagprism.load_dialects(context)
 
         # We don't have a easy-to-use PTX parser that we can use, so keep that regex for now.
@@ -322,6 +324,7 @@ def compile(src, target=None, options=None, _env_vars=None):
         context = ir.context()
         ir.load_dialects(context)
         backend.load_dialects(context)
+        # FlagPrism: register optional dialects in every fresh context.
         _flagprism.load_dialects(context)
 
     codegen_fns = backend.get_codegen_implementation(options)
@@ -357,6 +360,7 @@ def compile(src, target=None, options=None, _env_vars=None):
         elif full_name := fn_override_manager.get_file(ir_filename):
             print(f"\nOverriding kernel with file {full_name}")
             next_module = parse(full_name, ext, context)
+        # FlagPrism: publish the final stage output after any IR override.
         _flagprism.emit_compiler_event(
             phase="post_override",
             ir_kind=ext,

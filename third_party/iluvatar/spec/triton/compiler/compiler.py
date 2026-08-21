@@ -5,7 +5,8 @@ from .._C.libtriton import get_cache_invalidating_env_vars, ir
 from ..backends import backends
 from ..backends.compiler import Language
 from ..backends.compiler import BaseBackend, GPUTarget
-from .. import _flagprism, __version__, knobs
+from .. import __version__, knobs
+from flagtree import _flagprism
 from ..runtime.autotuner import OutOfResources
 from ..runtime.cache import get_cache_manager, get_dump_manager, get_override_manager, get_cache_key
 from ..runtime.driver import driver
