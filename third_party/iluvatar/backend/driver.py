@@ -729,12 +729,12 @@ class CorexLauncher(object):
         user_args = args[-self.user_arg_count:] if self.user_arg_count else ()
         launch_metadata = args[1] if len(args) > 1 else None
         with _flagprism.debugger_launch_context(
-            "corex",
-            self.metadata,
+                "corex",
+                self.metadata,
             (gridX, gridY, gridZ),
-            stream,
-            launch_metadata,
-            user_args,
+                stream,
+                launch_metadata,
+                user_args,
         ) as hidden_args:
             return launch(hidden_args)
 

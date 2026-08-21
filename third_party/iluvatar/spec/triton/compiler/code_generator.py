@@ -704,9 +704,7 @@ class CodeGenerator(ast.NodeVisitor):
                 values = _sanitize_value(self.visit(node.value))
         else:
             values = _sanitize_value(self.visit(node.value))
-        _flagprism.emit_statement_event(
-            "assignment", self, node, target, values
-        )
+        _flagprism.emit_statement_event("assignment", self, node, target, values)
         self.assignTarget(target, values)
 
     def visit_AugAssign(self, node):
