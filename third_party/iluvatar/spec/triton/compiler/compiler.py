@@ -6,7 +6,7 @@ from ..backends import backends
 from ..backends.compiler import Language
 from ..backends.compiler import BaseBackend, GPUTarget
 from .. import __version__, knobs
-from flagtree import _flagprism
+from flagtree import _flagprism  # FlagPrism
 from ..runtime.autotuner import OutOfResources
 from ..runtime.cache import get_cache_manager, get_dump_manager, get_override_manager, get_cache_key
 from ..runtime.driver import driver
@@ -269,6 +269,9 @@ def compile(src, target=None, options=None, _env_vars=None):
         src = IRSource(src, context, backend)
 
     extra_options = src.parse_options()
+    # FlagPrism: apply profiler/debugger options before backend parsing so they
+    # participate in specialization and cache-key construction.
+    # options = backend.parse_options(dict(options or dict(), **extra_options))
     raw_options = dict(options or dict(), **extra_options)
     _flagprism.apply_compile_options(raw_options)
     options = backend.parse_options(raw_options)
@@ -328,6 +331,7 @@ def compile(src, target=None, options=None, _env_vars=None):
         context = ir.context()
         ir.load_dialects(context)
         backend.load_dialects(context)
+        # FlagPrism: register optional dialects in every fresh context.
         _flagprism.load_dialects(context)
 
     codegen_fns = backend.get_codegen_implementation(options)
@@ -363,6 +367,7 @@ def compile(src, target=None, options=None, _env_vars=None):
         elif full_name := fn_override_manager.get_file(ir_filename):
             print(f"\nOverriding kernel with file {full_name}")
             next_module = parse(full_name, ext, context)
+        # FlagPrism: publish the final stage output after any IR override.
         _flagprism.emit_compiler_event(
             phase="post_override",
             ir_kind=ext,

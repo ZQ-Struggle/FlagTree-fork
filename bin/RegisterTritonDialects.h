@@ -29,6 +29,7 @@
 #include "nvidia/include/Dialect/NVGPU/IR/Dialect.h"
 #include "nvidia/include/Dialect/NVWS/IR/Dialect.h"
 #ifdef __FLAGPRISM__
+// FlagPrism: use the external component's replacement Proton registration.
 #include "FlagPrism/Profiler/Dialect/include/Integration/Registration.h"
 #else
 #include "proton/Dialect/include/Conversion/ProtonGPUToLLVM/Passes.h"
@@ -164,6 +165,7 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
 
   // Proton passes
 #ifdef __FLAGPRISM__
+  // FlagPrism: register passes and dialects supplied by the external component.
   mlir::triton::proton::registerFlagTreeProtonTestPasses();
   mlir::triton::proton::registerFlagTreeProtonPassesAndDialects(registry);
 #else
@@ -187,6 +189,7 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
       mlir::triton::nvgpu::NVGPUDialect, mlir::triton::nvws::NVWSDialect,
       mlir::triton::amdgpu::TritonAMDGPUDialect,
 #ifndef __FLAGPRISM__
+      // FlagPrism: the external component owns these dialect registrations.
       mlir::triton::proton::ProtonDialect,
       mlir::triton::proton::gpu::ProtonGPUDialect,
 #endif

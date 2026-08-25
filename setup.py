@@ -421,6 +421,7 @@ class CMakeClean(clean):
 class CMakeBuildPy(build_py):
 
     def run(self) -> None:
+        # FlagPrism: prepare the external component tree before compiling.
         FLAGPRISM_SETUP.prepare_build_tree(self.build_lib)
         self.run_command('build_ext')
         helper.write_flagtree_backend_file()  # flagtree
@@ -428,7 +429,8 @@ class CMakeBuildPy(build_py):
         helper.refresh_generated_backend_packages(self, backends)  # flagtree
         ret = super().run()
         helper.write_backend_file_to_build_lib(self.build_lib)  # flagtree
-        helper.write_backend_site_pth(self.build_lib)
+        helper.write_backend_site_pth(self.build_lib)  # flagtree
+        # FlagPrism: finalize external component packaging after build_py.
         FLAGPRISM_SETUP.finalize_build_tree(self.build_lib)
         return ret
 
@@ -719,6 +721,7 @@ def get_package_dirs():
 
 def get_packages():
     # flagtree backend specialization: add excluded packages
+    # FlagPrism: package the canonical host gateway and registered components.
     yield from find_packages(where="python", include=["flagtree", "flagtree.*"])
     yield from FLAGPRISM_SETUP.packages()  # FlagPrism
     yield from helper.get_spec_packages()

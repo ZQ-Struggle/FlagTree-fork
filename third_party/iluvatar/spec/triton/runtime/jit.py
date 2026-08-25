@@ -15,7 +15,7 @@ from typing import Callable, Generic, Iterable, Optional, TypeVar, overload, Dic
 from triton.backends import BaseBackend
 from types import ModuleType
 from .. import knobs
-from flagtree import _flagprism
+from flagtree import _flagprism  # FlagPrism
 from .driver import driver
 from . import _async_compile
 from .._utils import find_paths_if, get_iterable_path, type_canonicalisation_dict, is_namedtuple
@@ -737,6 +737,7 @@ class JITFunction(JITCallable, KernelInterface[T]):
     def run(self, *args, grid, warmup, **kwargs):
         kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
         kwargs["instrumentation_mode"] = knobs.compilation.instrumentation_mode
+        # FlagPrism: add profiler/debugger options before backend specialization.
         _flagprism.apply_compile_options(kwargs)
 
         # parse options

@@ -248,6 +248,7 @@ def download_flagtree_third_party(name, condition, required=False, hook=None):
 
 
 class FlagPrismSetup:
+    """FlagPrism: manage optional component build and package integration."""
 
     def __init__(self, project_root, dependency_cmake_args):
         self.project_root = Path(project_root)

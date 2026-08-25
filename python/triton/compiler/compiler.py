@@ -265,6 +265,9 @@ def compile(src, target=None, options=None, _env_vars=None):
         src = IRSource(src, context, backend)
 
     extra_options = src.parse_options()
+    # FlagPrism: apply profiler/debugger options before backend parsing so they
+    # participate in specialization and cache-key construction.
+    # options = backend.parse_options(dict(options or dict(), **extra_options))
     raw_options = dict(options or dict(), **extra_options)
     _flagprism.apply_compile_options(raw_options)
     options = backend.parse_options(raw_options)
