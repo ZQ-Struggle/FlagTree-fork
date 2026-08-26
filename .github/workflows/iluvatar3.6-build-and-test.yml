@@ -68,6 +68,33 @@ jobs:
           set -x
           export FLAGTREE_BACKEND=iluvatar
           export TRITON_OFFLINE_BUILD=1
+          # FlagPrism's Profiler uses nlohmann/json. Resolve the preloaded
+          # header tree before setup.py enters offline dependency validation.
+          if [[ -z "${JSON_SYSPATH:-}" ]]; then
+            for candidate in \
+              "${HOME}/.triton/json" \
+              "${FLAGTREE_OFFLINE_BUILD_DIR:-}/json" \
+              "${FLAGTREE_OFFLINE_BUILD_DIR:-}/nlohmann_json" \
+              "/usr" \
+              "/usr/local"; do
+              if [[ -f "${candidate}/include/nlohmann/json.hpp" ]]; then
+                export JSON_SYSPATH="${candidate}"
+                break
+              fi
+            done
+          fi
+          if [[ -z "${JSON_SYSPATH:-}" ]]; then
+            json_header="$(find "${HOME}" /usr/local /usr /opt /tmp \
+              -type f -path '*/include/nlohmann/json.hpp' -print -quit 2>/dev/null || true)"
+            if [[ -n "${json_header}" ]]; then
+              export JSON_SYSPATH="${json_header%/include/nlohmann/json.hpp}"
+            fi
+          fi
+          if [[ -z "${JSON_SYSPATH:-}" || ! -f "${JSON_SYSPATH:-}/include/nlohmann/json.hpp" ]]; then
+            echo "::error::nlohmann/json.hpp was not found for the offline FlagPrism build"
+            echo "::error::Set JSON_SYSPATH to a directory containing include/nlohmann/json.hpp"
+            exit 1
+          fi
           export TRITON_BUILD_PROTON=OFF
           export TRITON_ILU_BUILD_GLUON=OFF
           MAX_JOBS=32 python3 -m pip install . --no-build-isolation -v

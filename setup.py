@@ -689,6 +689,10 @@ backends = helper.init_backends(BackendInstaller)  # flagtree
 
 def get_package_dirs():
     yield ("", "python")
+    # Keep top-level FlagTree packages anchored to the main Python tree when
+    # a backend overrides the default package root.
+    for package in find_packages(where="python", include=["flagtree", "flagtree.*"]):
+        yield (package, os.path.join("python", package.replace(".", os.sep)))
     yield from FLAGPRISM_SETUP.package_dirs()  # FlagPrism
 
     # flagtree backend specialization
