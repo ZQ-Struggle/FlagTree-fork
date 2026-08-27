@@ -716,7 +716,7 @@ class CorexLauncher(object):
                 return alloc_fn(alloc_size, align, stream)
             return None
 
-        # Original launch path:
+        # FlagPrism: retain the original launch path for reference.
         # global_scratch = allocate_scratch(self.global_scratch_size, self.global_scratch_align,
         #                                   _allocation._allocator)
         # profile_scratch = allocate_scratch(self.profile_scratch_size, self.profile_scratch_align,

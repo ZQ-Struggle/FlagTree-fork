@@ -1,5 +1,6 @@
 """FlagTree DSL builtins lowered through Triton's frontend."""
 
+# FlagPrism: define the frontend hooks consumed by the external debugger.
 from triton.language.core import builtin
 
 

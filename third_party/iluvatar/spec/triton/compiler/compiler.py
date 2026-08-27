@@ -122,6 +122,7 @@ class IRSource:
         self.src = path.read_text()
         ir.load_dialects(context)
         backend.load_dialects(context)
+        # FlagPrism: load optional dialects when parsing standalone IR sources.
         _flagprism.load_dialects(context)
 
         # We don't have a easy-to-use PTX parser that we can use, so keep that regex for now.
@@ -271,6 +272,7 @@ def compile(src, target=None, options=None, _env_vars=None):
     extra_options = src.parse_options()
     # FlagPrism: apply profiler/debugger options before backend parsing so they
     # participate in specialization and cache-key construction.
+    # FlagPrism: retain the original option parsing statement for reference.
     # options = backend.parse_options(dict(options or dict(), **extra_options))
     raw_options = dict(options or dict(), **extra_options)
     _flagprism.apply_compile_options(raw_options)

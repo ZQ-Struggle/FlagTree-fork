@@ -1,3 +1,4 @@
+# FlagPrism: test the host integration contract without requiring a device.
 import ast
 from contextlib import nullcontext
 import importlib.util

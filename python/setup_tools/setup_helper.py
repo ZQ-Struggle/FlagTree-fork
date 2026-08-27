@@ -247,6 +247,18 @@ def download_flagtree_third_party(name, condition, required=False, hook=None):
             print(f"\033[1;33m[Note] Skip downloading {name} since USE_{name.upper()} is set to OFF\033[0m")
 
 
+# FlagPrism: resolve its dependency through FlagTree's existing package helpers.
+def get_flagprism_dependency_cmake_args(_build_ext, get_thirdparty_packages, get_json_package_info):
+    # FlagPrism: reuse the preloaded nlohmann/json tree in offline builds.
+    if not os.getenv("JSON_SYSPATH", "").strip():
+        user_home = os.getenv("TRITON_HOME") or os.getenv("HOME") or os.getenv("USERPROFILE") or os.getenv("HOMEPATH")
+        cache_root = Path(user_home or Path.home()) / ".triton"
+        json_path = cache_root / "json"
+        if (json_path / "include" / "nlohmann" / "json.hpp").is_file():
+            os.environ["JSON_SYSPATH"] = str(json_path)
+    return get_thirdparty_packages([get_json_package_info()])
+
+
 class FlagPrismSetup:
     """FlagPrism: manage optional component build and package integration."""
 

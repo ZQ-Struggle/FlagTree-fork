@@ -305,6 +305,7 @@ macro(flagtree_configure_python_plugins)
   # ProtonIR. XPU-specific Proton GPU lowering wrappers are disabled inside the
   # Proton plugin instead of skipping the whole dialect.
   # FlagPrism: its external component supplies ProtonIR and dialect registration.
+  # if(FLAGTREE_BACKEND STREQUAL "hcu")
   if(TRITON_BUILD_FLAGPRISM)
     # FlagPrism supplies the ProtonIR target and dialect registration.
   elseif(FLAGTREE_BACKEND STREQUAL "hcu")

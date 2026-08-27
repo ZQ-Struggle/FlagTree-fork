@@ -5,6 +5,7 @@ Debugger or Profiler implementations directly. Optional callbacks are no-ops
 until their package is imported and registers a compatible component.
 """
 
+# FlagPrism: keep the core-to-component integration boundary in one module.
 from __future__ import annotations
 
 import ast

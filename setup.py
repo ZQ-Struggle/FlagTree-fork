@@ -24,6 +24,7 @@ import os
 import platform
 import re
 import contextlib
+import functools  # FlagPrism
 import shlex
 import shutil
 import subprocess
@@ -38,6 +39,8 @@ from distutils.command.clean import clean
 from pathlib import Path
 from typing import Optional
 
+# FlagPrism: retain the original import while adding package discovery.
+# from setuptools import Extension, setup
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 from setuptools.command.build_py import build_py
@@ -359,11 +362,18 @@ def get_thirdparty_packages(packages: list):
     return thirdparty_cmake_args
 
 
-def get_flagprism_dependency_cmake_args(_build_ext):  # FlagPrism
-    return get_thirdparty_packages([get_json_package_info()])
-
-
-FLAGPRISM_SETUP = helper.FlagPrismSetup(get_base_dir(), get_flagprism_dependency_cmake_args)  # FlagPrism
+# FlagPrism: the dependency helper moved to setup_helper.py.
+# def get_flagprism_dependency_cmake_args(_build_ext):
+#     return get_thirdparty_packages([get_json_package_info()])
+# FlagPrism: bind the existing dependency resolver without duplicating setup logic.
+FLAGPRISM_SETUP = helper.FlagPrismSetup(
+    get_base_dir(),
+    functools.partial(
+        helper.get_flagprism_dependency_cmake_args,
+        get_thirdparty_packages=get_thirdparty_packages,
+        get_json_package_info=get_json_package_info,
+    ),
+)  # FlagPrism
 
 
 def download_and_copy(name, src_func, dst_path, variable, version, url_func):
@@ -689,7 +699,7 @@ backends = helper.init_backends(BackendInstaller)  # flagtree
 
 def get_package_dirs():
     yield ("", "python")
-    # Keep top-level FlagTree packages anchored to the main Python tree when
+    # FlagPrism: keep top-level packages anchored to the main Python tree when
     # a backend overrides the default package root.
     for package in find_packages(where="python", include=["flagtree", "flagtree.*"]):
         yield (package, os.path.join("python", package.replace(".", os.sep)))
