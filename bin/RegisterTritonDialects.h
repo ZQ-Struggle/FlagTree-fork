@@ -190,7 +190,7 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
       mlir::gpu::GPUDialect, mlir::LLVM::LLVMDialect, mlir::NVVM::NVVMDialect,
       mlir::triton::nvgpu::NVGPUDialect, mlir::triton::nvws::NVWSDialect,
       mlir::triton::amdgpu::TritonAMDGPUDialect,
-      // FlagPrism: exclude duplicate Proton dialects when the external component is enabled.
+      // FlagPrism: avoid duplicate Proton dialects.
 #ifndef __FLAGPRISM__
       // FlagPrism: the external component owns these dialect registrations.
       mlir::triton::proton::ProtonDialect,
