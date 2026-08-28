@@ -165,6 +165,7 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
   mlir::registerNVHopperTransformsPasses();
 
   // Proton passes
+  // FlagPrism: select the external component's pass registration.
 #ifdef __FLAGPRISM__
   // FlagPrism: register passes and dialects supplied by the external component.
   mlir::triton::proton::registerFlagTreeProtonTestPasses();
@@ -189,6 +190,7 @@ inline void registerTritonDialects(mlir::DialectRegistry &registry) {
       mlir::gpu::GPUDialect, mlir::LLVM::LLVMDialect, mlir::NVVM::NVVMDialect,
       mlir::triton::nvgpu::NVGPUDialect, mlir::triton::nvws::NVWSDialect,
       mlir::triton::amdgpu::TritonAMDGPUDialect,
+      // FlagPrism: exclude duplicate Proton dialects when the external component is enabled.
 #ifndef __FLAGPRISM__
       // FlagPrism: the external component owns these dialect registrations.
       mlir::triton::proton::ProtonDialect,

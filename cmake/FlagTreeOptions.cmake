@@ -130,6 +130,7 @@ macro(flagtree_configure_flagprism)
   endif()
 endmacro()
 
+# FlagPrism: register external profiler/debugger component targets.
 macro(flagtree_add_flagprism_components)
   if(TRITON_BUILD_FLAGPRISM)
     flagprism_add_components()

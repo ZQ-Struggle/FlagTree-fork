@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 import os
-import runpy
+import runpy  # FlagPrism: load the external build policy.
 import platform
 import shutil
 import sys
