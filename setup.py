@@ -362,9 +362,6 @@ def get_thirdparty_packages(packages: list):
     return thirdparty_cmake_args
 
 
-# FlagPrism: the dependency helper moved to setup_helper.py.
-# def get_flagprism_dependency_cmake_args(_build_ext):
-#     return get_thirdparty_packages([get_json_package_info()])
 # FlagPrism: bind the existing dependency resolver without duplicating setup logic.
 FLAGPRISM_SETUP = helper.FlagPrismSetup(
     get_base_dir(),
