@@ -22,8 +22,10 @@ def _load_build_helper():
     # path = (Path(__file__).resolve().parents[3] / "third_party" / "FlagPrism" / "python" / "flagprism_build.py")
     # FlagPrism: test the same source override accepted by the package build.
     source_override = os.getenv("FLAGPRISM_SOURCE_DIR", "").strip()
-    source_root = (Path(source_override).resolve() if source_override else Path(__file__).resolve().parents[3] /
-                   "third_party" / "FlagPrism")
+    source_root = Path(source_override) if source_override else Path("third_party") / "FlagPrism"
+    if not source_root.is_absolute():
+        source_root = PROJECT_ROOT / source_root
+    source_root = source_root.resolve()
     path = source_root / "python" / "flagprism_build.py"
     if not path.is_file():
         pytest.skip("FlagPrism sources are not available")
@@ -41,6 +43,8 @@ def build_helper():
 
 @pytest.fixture
 def flagprism_setup_factory(monkeypatch, tmp_path):
+    # FlagPrism: isolate synthetic project roots from external source overrides.
+    monkeypatch.delenv("FLAGPRISM_SOURCE_DIR", raising=False)
     helper_path = tmp_path / "third_party" / "FlagPrism" / "python" / "flagprism_build.py"
     helper_path.parent.mkdir(parents=True)
     helper_path.touch()
@@ -164,6 +168,18 @@ def test_build_helper_uses_unified_switch(build_helper, monkeypatch, tmp_path, v
     assert config.enabled is enabled
 
 
+# FlagPrism: keep the host-resolved source authoritative across package layers.
+def test_build_helper_prefers_resolved_source_root(build_helper, monkeypatch, tmp_path):
+    project_root = tmp_path / "FlagTree"
+    source_root = tmp_path / "FlagPrism"
+    monkeypatch.setenv("FLAGPRISM_SOURCE_DIR", "another-relative-checkout")
+
+    config = build_helper.FlagPrismBuildConfig.from_environment(project_root, source_root)
+
+    assert config.root == source_root.resolve()
+    assert config.relative_root == Path("../FlagPrism")
+
+
 @pytest.mark.parametrize(
     ("backend", "enabled"),
     (
@@ -211,6 +227,50 @@ def test_ascend_can_explicitly_disable_flagprism_without_changing_proton(flagpri
     assert not policy.enabled
     assert not downloads
     assert setup_helper.os.environ["TRITON_BUILD_PROTON"] == "ON"
+
+
+# FlagPrism: resolve relative source overrides from the project, not the cwd.
+def test_setup_resolves_relative_source_override_from_project_root(flagprism_setup_factory, monkeypatch, tmp_path):
+    create, downloads = flagprism_setup_factory
+    unrelated_cwd = tmp_path / "work"
+    unrelated_cwd.mkdir()
+    resolved_sources = []
+    build_config = SimpleNamespace()
+    monkeypatch.chdir(unrelated_cwd)
+    monkeypatch.setenv("FLAGPRISM_SOURCE_DIR", "third_party/FlagPrism")
+    monkeypatch.delenv("TRITON_BUILD_FLAGPRISM", raising=False)
+    monkeypatch.delenv("TRITON_BUILD_PROTON", raising=False)
+    monkeypatch.setattr(
+        setup_helper.runpy,
+        "run_path",
+        lambda *args, **kwargs: {
+            "create_build_config": lambda project_root, source_root: resolved_sources.append(source_root) or
+            build_config,
+        },
+    )
+
+    policy = create("mthreads")
+
+    assert policy.build_config is build_config
+    assert resolved_sources == [(tmp_path / "third_party" / "FlagPrism").resolve()]
+    assert not downloads
+
+
+# FlagPrism: reject invalid overrides without downloading another checkout.
+@pytest.mark.parametrize("source_kind", ("missing", "incomplete"))
+def test_setup_rejects_invalid_source_override(flagprism_setup_factory, monkeypatch, tmp_path, source_kind):
+    create, downloads = flagprism_setup_factory
+    source_root = tmp_path / f"{source_kind}-FlagPrism"
+    if source_kind == "incomplete":
+        source_root.mkdir()
+    monkeypatch.setenv("FLAGPRISM_SOURCE_DIR", source_root.name)
+    monkeypatch.delenv("TRITON_BUILD_FLAGPRISM", raising=False)
+    monkeypatch.delenv("TRITON_BUILD_PROTON", raising=False)
+
+    with pytest.raises(RuntimeError, match="FLAGPRISM_SOURCE_DIR"):
+        create("mthreads")
+
+    assert not downloads
 
 
 def test_non_ascend_explicit_flagprism_is_rejected_before_side_effects(flagprism_setup_factory, monkeypatch):
