@@ -393,12 +393,12 @@ def write_flagtree_backend_file(triton_pkg_dir=None):
 
 
 def write_backend_file_to_build_lib(build_lib):
-    # FlagPrism: every specialized backend needs the marker in the wheel.
-    # build_py only copies .py files, so without this explicit copy an
-    # installed wheel can rediscover unrelated backends and report ambiguous
-    # or zero active drivers. This includes upstream xpu/iluvatar and the
-    # NVIDIA FlagPrism build; keep the generic build marker-free.
-    if flagtree_backend:
+    # xpu/iluvatar: ensure triton/FLAGTREE_BACKEND lands in the wheel: build_py
+    # only copies .py by default, so this extension-less marker (read by
+    # triton._flagtree_backend to make the specialized driver's is_active()
+    # return True without any env var) was missing from the install, causing
+    # "0 active drivers". Keep this limited to the backends that require it.
+    if flagtree_backend in ("xpu", "iluvatar"):
         try:
             write_flagtree_backend_file(os.path.join(build_lib, "triton"))
         except Exception as exc:  # noqa: BLE001
