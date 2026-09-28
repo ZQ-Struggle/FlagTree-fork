@@ -90,6 +90,11 @@ jobs:
         run: |
           set -x
           export TRITON_HOME="/root/"
+          # FlagPrism: select NVIDIA's CUDA/CUPTI implementation while keeping
+          # FlagTree's default NVIDIA backend selection unchanged.
+          export TRITON_BUILD_FLAGPRISM=ON
+          export FLAGPRISM_BACKEND=nvidia
+          export TRITON_BUILD_PROTON=OFF
           pip uninstall -y triton
           env | grep -E '^(LLVM_SYSPATH)=' >> $GITHUB_ENV || true
           MAX_JOBS=32 python3 -m pip install . --no-build-isolation -v

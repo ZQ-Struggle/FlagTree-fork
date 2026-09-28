@@ -800,6 +800,7 @@ class CudaLauncher(object):
         self.metadata = metadata
         if bool(getattr(metadata, "debug_launch_hidden_arg", False)):
             signature[len(signature)] = "*i8"
+        # end FlagPrism
         tensordesc_meta = getattr(metadata, "tensordesc_meta", None)
         src = make_launcher(constants, signature, tensordesc_meta)
         mod = compile_module_from_src(
@@ -829,9 +830,10 @@ class CudaLauncher(object):
                 return alloc_fn(alloc_size, align, stream)
             return None
 
-        # FlagPrism: the original scratch allocation block is intentionally
+        # FlagPrism: the original scratch allocation and stock CUDA call are
         # kept commented for reference. Allocation moved into ``launch`` so a
-        # debugger prepare/launch cycle has exactly one allocation per launch.
+        # debugger prepare/launch cycle has exactly one allocation per launch,
+        # with debugger-owned hidden arguments appended after user arguments.
         # global_scratch = allocate_scratch(self.global_scratch_size, self.global_scratch_align, _allocation._allocator)
         # # begin flagtree tle
         # # Grid distributed_barrier lowering follows CUDA cooperative_groups
@@ -849,8 +851,6 @@ class CudaLauncher(object):
         # # end flagtree tle
         # profile_scratch = allocate_scratch(self.profile_scratch_size, self.profile_scratch_align,
         #                                    _allocation._profile_allocator)
-        # FlagPrism: keep allocation and the stock CUDA call in one wrapper so
-        # debugger-owned hidden arguments are appended after user arguments.
         def launch(hidden_args=()):
             global_scratch = allocate_scratch(self.global_scratch_size, self.global_scratch_align,
                                               _allocation._allocator)
@@ -909,13 +909,9 @@ class CudaDriver(GPUDriver):
 
     @staticmethod
     def is_active():
-        # FlagPrism: a specialized NVIDIA package records its backend in the
-        # marker file; that marker must not disable the NVIDIA driver itself.
+        # flagtree nvidia
         from triton._flagtree_backend import FLAGTREE_BACKEND
-        # FlagPrism: replace Triton's original single-backend guard so the
-        # NVIDIA marker remains active for the CUDA backend.
-        # if FLAGTREE_BACKEND and FLAGTREE_BACKEND != "tileir":
-        if FLAGTREE_BACKEND and FLAGTREE_BACKEND not in {"tileir", "nvidia"}:
+        if FLAGTREE_BACKEND and FLAGTREE_BACKEND != "tileir":
             return False
 
         try:
